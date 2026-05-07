@@ -1,12 +1,12 @@
 // ATL Ticker Analyzer — Main App Controller
 
-import { fetchAllData } from './api.js?v=1778156701';
-import { runAnalysis } from './indicators.js?v=1778156701';
-import { generateSignal } from './signals.js?v=1778156701';
+import { fetchAllData } from './api.js?v=1778157021';
+import { runAnalysis } from './indicators.js?v=1778157021';
+import { generateSignal } from './signals.js?v=1778157021';
 import {
   initChart, initRSIChart, initMACDChart,
   setupOverlayCanvas, renderAll,
-} from './chart.js?v=1778156701';
+} from './chart.js?v=1778157021';
 
 // ── State ─────────────────────────────────────────────────────
 let currentSymbol = '';
@@ -121,7 +121,11 @@ async function analyze(symbol, tf = currentTF) {
     signal = generateSignal(rawData, analysis);
 
     renderUI(symbol, rawData, analysis, signal);
-    renderAll(analysis);
+    renderAll(
+      analysis, rawData,
+      dom.chartContainer(), dom.rsiContainer(), dom.macdContainer(),
+      dom.volContainer(), dom.fundingMini(), dom.oiMini(), dom.liqContainer()
+    );
 
     updateStatsBar(rawData, analysis);
     buildCardGrid(analysis, signal, rawData);
@@ -812,9 +816,7 @@ function boot() {
   window.__atl_signal = null;
   window.openDrawer   = (type) => openDrawer(type, analysis, signal, rawData);
 
-  // Auto-load BTC on start
-  if (input) input.value = 'BTC';
-  setTimeout(() => analyze('BTC'), 300);
+  // No auto-load — user enters symbol and presses SCAN
 }
 
 window.addEventListener('DOMContentLoaded', boot);
