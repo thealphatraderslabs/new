@@ -1,12 +1,12 @@
 // ATL Ticker Analyzer — Main App Controller
 
-import { fetchAllData } from './api.js';
-import { runAnalysis } from './indicators.js';
-import { generateSignal } from './signals.js';
+import { fetchAllData } from './api.js?v=1778156701';
+import { runAnalysis } from './indicators.js?v=1778156701';
+import { generateSignal } from './signals.js?v=1778156701';
 import {
   initChart, initRSIChart, initMACDChart,
   setupOverlayCanvas, renderAll,
-} from './chart.js';
+} from './chart.js?v=1778156701';
 
 // ── State ─────────────────────────────────────────────────────
 let currentSymbol = '';
