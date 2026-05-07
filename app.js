@@ -133,7 +133,7 @@ async function analyze(symbol, tf = currentTF) {
 
     // Auto-refresh every 30s
     if (refreshTimer) clearInterval(refreshTimer);
-    refreshTimer = setInterval(() => analyze(currentSymbol, currentTF), 30000);
+    refreshTimer = setInterval(() => analyze(currentSymbol, currentTF), 3000000);
 
   } catch (err) {
     console.error(err);
