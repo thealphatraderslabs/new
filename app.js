@@ -121,11 +121,7 @@ async function analyze(symbol, tf = currentTF) {
     signal = generateSignal(rawData, analysis);
 
     renderUI(symbol, rawData, analysis, signal);
-    renderAll(
-      analysis, rawData,
-      dom.chartContainer(), dom.rsiContainer(), dom.macdContainer(),
-      dom.volContainer(), dom.fundingMini(), dom.oiMini(), dom.liqContainer()
-    );
+    renderAll(analysis);
 
     updateStatsBar(rawData, analysis);
     buildCardGrid(analysis, signal, rawData);
