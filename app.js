@@ -4,13 +4,13 @@
 //   - buildCardGrid() replaced by buildIntelTabs() — 4 tabs, all inline.
 //   - Decision Bar populated on every analyze() call.
 
-import { fetchAllData } from './api.js?v=2';
-import { runAnalysis } from './indicators.js?v=2';
-import { generateSignal } from './signals.js?v=2';
+import { fetchAllData } from './api.js';
+import { runAnalysis } from './indicators.js';
+import { generateSignal } from './signals.js';
 import {
   initChart, initRSIChart, initMACDChart,
   setupOverlayCanvas, renderAll,
-} from './chart.js?v=2';
+} from './chart.js';
 
 // ── State ──────────────────────────────────────────────────────
 let currentSymbol = '';
