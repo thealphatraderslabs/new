@@ -1,12 +1,16 @@
-// ATL Ticker Analyzer — Main App Controller v2
-// Changes from v1:
-//   - Auto-refresh REMOVED. Refresh is manual only (button or TF switch).
-//   - buildCardGrid() replaced by buildIntelTabs() — 4 tabs, all inline.
-//   - Decision Bar populated on every analyze() call.
+// ATL Ticker Analyzer — Main App Controller v3
+// UI update: matches target Cryptex Terminal design language
+//   - MTF Bias table in centre panel
+//   - OB cards with % distance badge
+//   - FVG rows with OPEN/FILLED status
+//   - Enlarged trade card values (14px prices)
+//   - Bull/Bear scenario + Invalidation blocks always rendered
+//   - Confluence breakdown always visible (no display:none)
+//   - Decision strip values enlarged to 13px
 
 import { fetchAllData } from './api.js';
-import { runAnalysis } from './indicators.js';
-import { generateSignal } from './signals.js';
+import { runAnalysis }  from './indicators.js';
+import { generateSignal, generateMTFBias } from './signals.js';
 import {
   initChart, initRSIChart, initMACDChart,
   setupOverlayCanvas, renderAll,
@@ -21,14 +25,13 @@ let analysis      = null;
 let signal        = null;
 
 // ── DOM Refs ───────────────────────────────────────────────────
-// IDs matched to index.html actual element IDs
 const dom = {
   // Command bar
-  searchInput:    () => document.getElementById('tickerInput'),
-  searchBtn:      () => document.getElementById('analysisBtn'),
-  tfButtons:      () => document.querySelectorAll('.tf-pill[data-ticker]'),
-  tfSelect:       () => document.getElementById('tfSelect'),
-  autoRefreshBtn: () => document.getElementById('autoRefreshBtn'),
+  searchInput:        () => document.getElementById('tickerInput'),
+  searchBtn:          () => document.getElementById('analysisBtn'),
+  tfButtons:          () => document.querySelectorAll('.tf-pill[data-ticker]'),
+  tfSelect:           () => document.getElementById('tfSelect'),
+  autoRefreshBtn:     () => document.getElementById('autoRefreshBtn'),
   refreshIntervalSel: () => document.getElementById('refreshIntervalSel'),
   // Overlay / error
   loadingOverlay: () => document.getElementById('loading-overlay'),
@@ -40,9 +43,9 @@ const dom = {
   priceDisplay:   () => document.getElementById('h-price'),
   change24h:      () => document.getElementById('h-change'),
   biasChip:       () => document.getElementById('h-bias'),
-  scoreRing:      () => null,   // not present in this layout
-  scoreNumber:    () => null,   // not present in this layout
-  // Drawer (not present — no-ops safe via optional chaining)
+  scoreRing:      () => null,
+  scoreNumber:    () => null,
+  // Drawer (optional)
   drawerPanel:    () => document.getElementById('drawer-panel'),
   drawerTitle:    () => document.getElementById('drawer-title'),
   drawerContent:  () => document.getElementById('drawer-content'),
@@ -59,16 +62,16 @@ const dom = {
   statsBar:       () => document.getElementById('stats-bar'),
   refreshBtn:     () => document.getElementById('rail-refresh'),
   lastUpdated:    () => document.getElementById('last-updated'),
-  // Decision Bar — mapped to price hero panel elements
-  dbBias:         () => document.getElementById('ds-bias'),
-  dbEntry:        () => document.getElementById('ds-entry'),
-  dbSL:           () => document.getElementById('ds-sl'),
-  dbTP:           () => document.getElementById('ds-tp'),
-  dbStruct:       () => document.getElementById('s-htf'),
-  dbZone:         () => document.getElementById('s-zone'),
-  dbInvalid:      () => document.getElementById('ds-invalid'),
-  dbSlotBias:     () => document.getElementById('ds-bias-slot'),
-  // Tab panes — these don't exist in current HTML; populated dynamically
+  // Decision Strip
+  dbBias:     () => document.getElementById('ds-bias'),
+  dbEntry:    () => document.getElementById('ds-entry'),
+  dbSL:       () => document.getElementById('ds-sl'),
+  dbTP:       () => document.getElementById('ds-tp'),
+  dbStruct:   () => document.getElementById('s-htf'),
+  dbZone:     () => document.getElementById('s-zone'),
+  dbInvalid:  () => document.getElementById('ds-invalid'),
+  dbSlotBias: () => document.getElementById('ds-bias-slot'),
+  // Legacy tab panes (no-ops if absent)
   tabSetup:       () => document.getElementById('tab-setup'),
   tabStructure:   () => document.getElementById('tab-structure'),
   tabLevels:      () => document.getElementById('tab-levels'),
@@ -168,14 +171,12 @@ function renderUI(symbol, data, analysis, signal) {
   const price  = ticker?.price || analysis.price;
   const chg    = ticker?.price24h || 0;
 
-  // Price hero (#h-ticker, #h-price, #h-change)
-  const sd  = document.getElementById('h-ticker');
-  const pd  = document.getElementById('h-price');
-  const c24 = document.getElementById('h-change');
-  const bc  = document.getElementById('h-bias');
+  const sd    = document.getElementById('h-ticker');
+  const pd    = document.getElementById('h-price');
+  const c24   = document.getElementById('h-change');
+  const bc    = document.getElementById('h-bias');
   const bconf = document.getElementById('h-bias-conf');
 
-  // Additional hero stats
   const hHigh    = document.getElementById('h-high');
   const hLow     = document.getElementById('h-low');
   const hVol     = document.getElementById('h-vol');
@@ -192,30 +193,33 @@ function renderUI(symbol, data, analysis, signal) {
   if (hLow)     hLow.textContent     = ticker ? `$${formatPrice(ticker.low24h)}` : '—';
   if (hVol)     hVol.textContent     = ticker ? formatLarge(ticker.turnover24h) + ' USDT' : '—';
   if (hOI)      hOI.textContent      = ticker?.openInterest ? formatLarge(ticker.openInterest) : '—';
+
   if (hFunding) {
     const fr = ticker?.fundingRate || 0;
-    hFunding.textContent = `${fr.toFixed(4)}%`;
-    hFunding.style.color = fr < -0.01 ? '#00e676' : fr > 0.05 ? '#ff4444' : '#ffd54f';
+    hFunding.textContent  = `${fr.toFixed(4)}%`;
+    hFunding.style.color  = fr < -0.01 ? '#00e676' : fr > 0.05 ? '#ff4444' : '#ffd54f';
   }
   if (hRSI) {
     const rsi = analysis.lastRSI;
-    hRSI.textContent = rsi != null ? rsi.toFixed(1) : '—';
-    hRSI.style.color = rsi > 70 ? '#ff4444' : rsi < 30 ? '#00e676' : '#8892a0';
+    hRSI.textContent   = rsi != null ? rsi.toFixed(1) : '—';
+    hRSI.style.color   = rsi > 70 ? '#ff4444' : rsi < 30 ? '#00e676' : '#8892a0';
   }
-  if (hMark)  hMark.textContent  = ticker ? `$${formatPrice(ticker.markPrice)}` : '—';
-  if (hATR)   hATR.textContent   = analysis.lastATR ? `$${formatPrice(analysis.lastATR)}` : '—';
+  if (hMark) hMark.textContent = ticker ? `$${formatPrice(ticker.markPrice)}` : '—';
+  if (hATR)  hATR.textContent  = analysis.lastATR ? `$${formatPrice(analysis.lastATR)}` : '—';
 
   if (c24) {
     c24.textContent = `${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%`;
     c24.className   = `ph-change ${chg >= 0 ? 'pos' : 'neg'}`;
   }
+
+  // Bias block — enlarged label + score sub-line
   if (bc && signal) {
-    bc.textContent  = signal.biasLabel;
-    bc.style.color  = signal.biasColor;
-    bc.className    = `ph-bias-val ${signal.biasLabel?.toLowerCase().includes('long') ? 'bull' : signal.biasLabel?.toLowerCase().includes('short') ? 'bear' : 'neutral'}`;
+    bc.textContent = signal.biasLabel;
+    bc.style.color = signal.biasColor;
+    bc.className   = `ph-bias-val ${signal.biasLabel?.toLowerCase().includes('long') ? 'bullish' : signal.biasLabel?.toLowerCase().includes('short') ? 'bearish' : 'neutral'}`;
   }
   if (bconf && signal) {
-    bconf.textContent = `Score: ${signal.normalizedScore > 0 ? '+' : ''}${signal.normalizedScore} · ${signal.biasLabel}`;
+    bconf.textContent = `Score: ${signal.normalizedScore > 0 ? '+' : ''}${signal.normalizedScore}`;
   }
   renderScoreRing(signal?.normalizedScore || 0, signal?.biasColor || '#ffd54f');
 }
@@ -238,16 +242,16 @@ function updateStatsBar(data, analysis) {
   if (!bar) return;
   const t = data.ticker;
   const stats = [
-    { label: 'Mark Price',   value: t ? `$${formatPrice(t.markPrice)}` : '—' },
-    { label: 'Index Price',  value: t ? `$${formatPrice(t.indexPrice)}` : '—' },
-    { label: 'Funding Rate', value: t ? `${t.fundingRate.toFixed(4)}%` : '—', color: t?.fundingRate < 0 ? '#00e676' : t?.fundingRate > 0.05 ? '#ff4444' : '#8892a0' },
-    { label: 'Open Interest',value: t?.openInterest ? formatLarge(t.openInterest) : '—' },
-    { label: 'Volume 24H',   value: t ? formatLarge(t.turnover24h) + ' USDT' : '—' },
-    { label: 'ATR (14)',     value: analysis.lastATR ? `$${formatPrice(analysis.lastATR)}` : '—' },
-    { label: 'RSI (14)',     value: analysis.lastRSI != null ? analysis.lastRSI.toFixed(1) : '—', color: analysis.lastRSI > 70 ? '#ff4444' : analysis.lastRSI < 30 ? '#00e676' : '#8892a0' },
-    { label: 'Structure',    value: analysis.structure?.trend || '—', color: analysis.structure?.trend === 'bull' ? '#00e676' : '#ff4444' },
-    { label: 'Premium/Disc', value: analysis.premDisc?.zone?.toUpperCase() || '—', color: analysis.premDisc?.zone === 'discount' ? '#00e676' : analysis.premDisc?.zone === 'premium' ? '#ff4444' : '#ffd54f' },
-    { label: 'HTF Bias',     value: analysis.htfStructure?.trend || '—', color: analysis.htfStructure?.trend === 'bull' ? '#00e676' : '#ff4444' },
+    { label: 'Mark Price',    value: t ? `$${formatPrice(t.markPrice)}` : '—' },
+    { label: 'Index Price',   value: t ? `$${formatPrice(t.indexPrice)}` : '—' },
+    { label: 'Funding Rate',  value: t ? `${t.fundingRate.toFixed(4)}%` : '—', color: t?.fundingRate < 0 ? '#00e676' : t?.fundingRate > 0.05 ? '#ff4444' : '#8892a0' },
+    { label: 'Open Interest', value: t?.openInterest ? formatLarge(t.openInterest) : '—' },
+    { label: 'Volume 24H',    value: t ? formatLarge(t.turnover24h) + ' USDT' : '—' },
+    { label: 'ATR (14)',      value: analysis.lastATR ? `$${formatPrice(analysis.lastATR)}` : '—' },
+    { label: 'RSI (14)',      value: analysis.lastRSI != null ? analysis.lastRSI.toFixed(1) : '—', color: analysis.lastRSI > 70 ? '#ff4444' : analysis.lastRSI < 30 ? '#00e676' : '#8892a0' },
+    { label: 'Structure',     value: analysis.structure?.trend || '—', color: analysis.structure?.trend === 'bull' ? '#00e676' : '#ff4444' },
+    { label: 'Premium/Disc',  value: analysis.premDisc?.zone?.toUpperCase() || '—', color: analysis.premDisc?.zone === 'discount' ? '#00e676' : analysis.premDisc?.zone === 'premium' ? '#ff4444' : '#ffd54f' },
+    { label: 'HTF Bias',      value: analysis.htfStructure?.trend || '—', color: analysis.htfStructure?.trend === 'bull' ? '#00e676' : '#ff4444' },
   ];
   bar.innerHTML = stats.map(s => `
     <div class="stat-item">
@@ -257,25 +261,23 @@ function updateStatsBar(data, analysis) {
 }
 
 // ── Decision Bar ───────────────────────────────────────────────
-// Populates the always-visible strip with the full trade read.
-// No clicking required — this is the first thing a user sees.
 function populateDecisionBar(analysis, signal) {
-  const s       = signal?.setup;
-  const trend   = analysis.structure?.trend || 'neutral';
-  const pd      = analysis.premDisc;
+  const s     = signal?.setup;
+  const trend = analysis.structure?.trend || 'neutral';
+  const pd    = analysis.premDisc;
 
   // BIAS
-  const biasEl  = dom.dbBias();
-  const slotEl  = dom.dbSlotBias();
+  const biasEl = dom.dbBias();
+  const slotEl = dom.dbSlotBias();
   if (biasEl) {
-    biasEl.textContent  = signal?.biasLabel || '—';
-    biasEl.style.color  = signal?.biasColor || '#8892a0';
+    biasEl.textContent = signal?.biasLabel || '—';
+    biasEl.style.color = signal?.biasColor || '#8892a0';
   }
   if (slotEl) {
     slotEl.style.borderBottomColor = signal?.biasColor || 'transparent';
   }
 
-  // ENTRY ZONE
+  // ENTRY
   const entryEl = dom.dbEntry();
   if (entryEl) {
     entryEl.textContent = s ? `$${formatPrice(s.entry)}` : '—';
@@ -297,8 +299,8 @@ function populateDecisionBar(analysis, signal) {
   // STRUCTURE
   const structEl = dom.dbStruct();
   if (structEl) {
-    const htf  = analysis.htfStructure?.trend || '—';
-    const mtf  = trend;
+    const htf = analysis.htfStructure?.trend || '—';
+    const mtf = trend;
     structEl.textContent = `MTF: ${mtf.toUpperCase()} · HTF: ${htf.toUpperCase()}`;
     structEl.style.color = mtf === 'bull' ? '#00e676' : mtf === 'bear' ? '#ff4444' : '#ffd54f';
   }
@@ -316,13 +318,12 @@ function populateDecisionBar(analysis, signal) {
   const invEl = dom.dbInvalid();
   if (invEl) {
     invEl.textContent = s?.invalidationReason
-      ? truncate(s.invalidationReason, 55)
+      ? truncate(s.invalidationReason, 60)
       : 'No active setup — wait for structure confirmation';
   }
 }
 
-// ── Intel Tabs — main render ───────────────────────────────────
-// Writes directly into the actual HTML panel elements in index.html
+// ── Intel Tabs — master dispatcher ────────────────────────────
 function buildIntelTabs(analysis, signal, data) {
   populateDerivativesPanel(data, analysis);
   populateStructurePanel(analysis, signal);
@@ -330,7 +331,7 @@ function buildIntelTabs(analysis, signal, data) {
 }
 
 // ════════════════════════════════════════════════════════════════
-//  DERIVATIVES PANEL — writes to #panel-deriv static elements
+//  DERIVATIVES PANEL
 // ════════════════════════════════════════════════════════════════
 function populateDerivativesPanel(data, analysis) {
   const t   = data.ticker;
@@ -338,11 +339,10 @@ function populateDerivativesPanel(data, analysis) {
   const frColor = fr < -0.01 ? '#00e676' : fr > 0.05 ? '#ff4444' : '#ffd54f';
   const frExplain = fr < -0.05 ? 'Extreme negative — short squeeze risk HIGH'
     : fr < -0.01 ? 'Negative — shorts paying longs, mild bullish signal'
-    : fr > 0.1  ? 'Very high positive — long liquidation risk elevated'
-    : fr > 0.03 ? 'Elevated positive — leverage flush risk'
+    : fr > 0.1   ? 'Very high positive — long liquidation risk elevated'
+    : fr > 0.03  ? 'Elevated positive — leverage flush risk'
     : 'Neutral — no significant derivatives pressure';
 
-  // Funding rate
   const set = (id, val, color) => {
     const el = document.getElementById(id);
     if (!el) return;
@@ -350,10 +350,9 @@ function populateDerivativesPanel(data, analysis) {
     if (color) el.style.color = color;
   };
 
-  set('d-funding',       `${fr.toFixed(4)}%`, frColor);
+  set('d-funding',        `${fr.toFixed(4)}%`, frColor);
   set('d-funding-interp', frExplain, frColor);
 
-  // Next funding time
   const pm = data.premIndex;
   if (pm?.nextFundingTime) {
     const mins = Math.round((pm.nextFundingTime - Date.now()) / 60000);
@@ -372,10 +371,10 @@ function populateDerivativesPanel(data, analysis) {
   // OI spark bars
   const spark = document.getElementById('oi-spark');
   if (spark && oiLen > 0) {
-    const maxOI = Math.max(...oiData.map(o => o.oi));
+    const maxOI  = Math.max(...oiData.map(o => o.oi));
     const recent = oiData.slice(-24);
     spark.innerHTML = recent.map(o => {
-      const h = Math.round((o.oi / maxOI) * 32);
+      const h      = Math.round((o.oi / maxOI) * 32);
       const rising = o.oi >= (oiData[oiData.indexOf(o) - 1]?.oi || o.oi);
       return `<div style="width:3px;height:${h}px;background:${rising ? '#00e676' : '#ff4444'};opacity:0.7;border-radius:1px"></div>`;
     }).join('');
@@ -389,8 +388,8 @@ function populateDerivativesPanel(data, analysis) {
     const buyLbl   = document.getElementById('d-buy-pct');
     const sellLbl  = document.getElementById('d-sell-pct');
     if (takerBar) takerBar.style.width = `${(tf.buyRatio * 100).toFixed(0)}%`;
-    if (buyLbl)  buyLbl.textContent  = `BUY ${(tf.buyRatio * 100).toFixed(0)}%`;
-    if (sellLbl) sellLbl.textContent = `SELL ${(tf.sellRatio * 100).toFixed(0)}%`;
+    if (buyLbl)   buyLbl.textContent   = `BUY ${(tf.buyRatio * 100).toFixed(0)}%`;
+    if (sellLbl)  sellLbl.textContent  = `SELL ${(tf.sellRatio * 100).toFixed(0)}%`;
   }
 
   // Order book
@@ -404,8 +403,8 @@ function populateDerivativesPanel(data, analysis) {
     if (bidLbl) bidLbl.textContent = `BID ${(ob.bidAskRatio * 100).toFixed(0)}%`;
     if (askLbl) askLbl.textContent = `ASK ${((1 - ob.bidAskRatio) * 100).toFixed(0)}%`;
 
-    set('d-bid-walls', ob.bidWalls.slice(0,3).map(w => `$${formatPrice(w.price)} (${w.size.toFixed(1)})`).join(' · ') || '—', '#00e676');
-    set('d-ask-walls', ob.askWalls.slice(0,3).map(w => `$${formatPrice(w.price)} (${w.size.toFixed(1)})`).join(' · ') || '—', '#ff4444');
+    set('d-bid-walls', ob.bidWalls.slice(0, 3).map(w => `$${formatPrice(w.price)} (${w.size.toFixed(1)})`).join(' · ') || '—', '#00e676');
+    set('d-ask-walls', ob.askWalls.slice(0, 3).map(w => `$${formatPrice(w.price)} (${w.size.toFixed(1)})`).join(' · ') || '—', '#ff4444');
   }
 
   // Mark / Index
@@ -422,7 +421,7 @@ function populateDerivativesPanel(data, analysis) {
     histEl.innerHTML = hist.map(h => {
       const col = h.rate < 0 ? '#00e676' : '#ff4444';
       return `<div class="deriv-row">
-        <span class="deriv-key">${new Date(h.time * 1000).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span>
+        <span class="deriv-key">${new Date(h.time * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
         <span class="deriv-val" style="color:${col}">${h.rate.toFixed(4)}%</span>
       </div>`;
     }).join('');
@@ -430,7 +429,11 @@ function populateDerivativesPanel(data, analysis) {
 }
 
 // ════════════════════════════════════════════════════════════════
-//  STRUCTURE PANEL — writes to #panel-struct static elements
+//  STRUCTURE PANEL
+//  KEY CHANGES vs v2:
+//    • OB cards now show % distance badge (matching target)
+//    • FVG rows now show OPEN / FILLED status tag
+//    • MTF Bias table rendered via renderMTFBiasTable()
 // ════════════════════════════════════════════════════════════════
 function populateStructurePanel(analysis, signal) {
   const set = (id, val, color) => {
@@ -440,29 +443,29 @@ function populateStructurePanel(analysis, signal) {
     if (color) el.style.color = color;
   };
 
-  const st    = analysis.structure;
-  const htf   = analysis.htfStructure;
-  const trend = st?.trend || 'neutral';
-  const tCol  = trend === 'bull' ? '#00e676' : trend === 'bear' ? '#ff4444' : '#ffd54f';
+  const st       = analysis.structure;
+  const htf      = analysis.htfStructure;
+  const trend    = st?.trend || 'neutral';
+  const tCol     = trend === 'bull' ? '#00e676' : trend === 'bear' ? '#ff4444' : '#ffd54f';
   const htfTrend = htf?.trend || 'neutral';
   const htfCol   = htfTrend === 'bull' ? '#00e676' : htfTrend === 'bear' ? '#ff4444' : '#ffd54f';
+  const price    = analysis.price;
 
   // Supertrend / Trend
   set('s-trend', trend.toUpperCase(), tCol);
-  const emas = analysis.lastEMAs;
-  const price = analysis.price;
+  const emas    = analysis.lastEMAs;
   const emaBias = emas && price
     ? (price > emas.ema20 && price > emas.ema50 ? 'Above EMA20/50' : price < emas.ema20 && price < emas.ema50 ? 'Below EMA20/50' : 'Mixed EMA position')
     : '—';
   set('s-trend-sub', emaBias, '#8892a0');
 
   // HTF bias
-  set('s-htf', `MTF: ${trend.toUpperCase()} · HTF: ${htfTrend.toUpperCase()}`, tCol);
+  set('s-htf',     `MTF: ${trend.toUpperCase()} · HTF: ${htfTrend.toUpperCase()}`, tCol);
   set('s-htf-sub', htf ? `4H: ${htfTrend}` : 'HTF data unavailable', htfCol);
 
   // BOS / CHoCH — last event
-  const events = st?.events || [];
-  const lastEv = events[events.length - 1];
+  const events  = st?.events || [];
+  const lastEv  = events[events.length - 1];
   const structEl = document.getElementById('s-struct');
   if (structEl) {
     if (lastEv) {
@@ -477,7 +480,7 @@ function populateStructurePanel(analysis, signal) {
   // P/D Zone
   const pd = analysis.premDisc;
   if (pd) {
-    set('s-zone', pd.zone.toUpperCase(), pd.zone === 'discount' ? '#00e676' : pd.zone === 'premium' ? '#ff4444' : '#ffd54f');
+    set('s-zone',     pd.zone.toUpperCase(), pd.zone === 'discount' ? '#00e676' : pd.zone === 'premium' ? '#ff4444' : '#ffd54f');
     set('s-zone-sub', `${(pd.position * 100).toFixed(1)}% of range`, '#8892a0');
   }
 
@@ -487,36 +490,52 @@ function populateStructurePanel(analysis, signal) {
   if (pivH) { set('s-sh', `$${formatPrice(pivH.price)}`, '#ff4444'); set('s-sh-sub', new Date(pivH.time * 1000).toLocaleDateString(), '#8892a0'); }
   if (pivL) { set('s-sl', `$${formatPrice(pivL.price)}`, '#00e676'); set('s-sl-sub', new Date(pivL.time * 1000).toLocaleDateString(), '#8892a0'); }
 
-  // Order Blocks
-  const obEl = document.getElementById('ob-container');
-  const obs  = analysis.orderBlocks || [];
+  // ── Order Blocks — with % distance badge ──────────────────────
+  const obEl  = document.getElementById('ob-container');
+  const obs   = analysis.orderBlocks || [];
   const freshOBs = obs.filter(o => o.state === 'fresh');
   if (obEl) {
     if (freshOBs.length) {
-      obEl.innerHTML = freshOBs.slice(0, 4).map(ob => `
-        <div class="ob-card ${ob.type === 'demand' ? 'ob-card-bull' : 'ob-card-bear'}">
-          <span class="tag ${ob.type === 'demand' ? 'tag-bull' : 'tag-bear'}">${ob.type.toUpperCase()}</span>
+      obEl.innerHTML = freshOBs.slice(0, 5).map(ob => {
+        // % distance from current price to the OB midpoint
+        const mid     = (ob.low + ob.high) / 2;
+        const distPct = ((mid - price) / price * 100);
+        const distStr = `${distPct >= 0 ? '+' : ''}${distPct.toFixed(2)}%`;
+        const distCol = distPct >= 0 ? '#00e676' : '#ff4444';
+        return `<div class="ob-card ${ob.type === 'demand' ? 'ob-card-bull' : 'ob-card-bear'}">
+          <span class="tag ${ob.type === 'demand' ? 'tag-bull' : 'tag-bear'}">${ob.type === 'demand' ? 'BULL OB' : 'BEAR OB'}</span>
           <span class="ob-range">$${formatPrice(ob.low)} – $${formatPrice(ob.high)}</span>
           <span class="ob-struct">${ob.structureType}</span>
-        </div>`).join('');
+          <span style="font-size:9px;color:${distCol};font-family:var(--font-mono);margin-left:auto">${distStr}</span>
+        </div>`;
+      }).join('');
     } else {
       obEl.innerHTML = `<div class="empty-state" style="height:40px;font-size:8px">NO FRESH OBs DETECTED</div>`;
     }
   }
 
-  // FVGs
+  // ── FVGs — with OPEN / FILLED status tag ──────────────────────
   const fvgEl  = document.getElementById('fvg-list');
   const fvgCnt = document.getElementById('fvg-count');
   const fvgs   = analysis.fvgs || [];
   if (fvgCnt) fvgCnt.textContent = `${fvgs.length} ACTIVE`;
   if (fvgEl) {
     if (fvgs.length) {
-      fvgEl.innerHTML = fvgs.slice(-5).reverse().map(f => `
-        <div class="fvg-row ${f.dir === 'bull' ? 'fvg-bull' : 'fvg-bear'}">
-          <span class="tag ${f.dir === 'bull' ? 'tag-bull' : 'tag-bear'}">${f.dir.toUpperCase()} FVG</span>
+      fvgEl.innerHTML = fvgs.slice(-6).reverse().map(f => {
+        // A FVG is "filled" if price has traded through it
+        const filled = (price >= f.bottom && price <= f.top) ? false  // currently inside
+          : (f.dir === 'bull' && price > f.top)   ? true   // bull FVG — price above it
+          : (f.dir === 'bear' && price < f.bottom) ? true  // bear FVG — price below it
+          : false;
+        const statusLabel = filled ? 'FILLED' : 'OPEN';
+        const statusColor = filled ? '#5a6470' : '#00e676';
+        return `<div class="fvg-row ${f.dir === 'bull' ? 'fvg-bull' : 'fvg-bear'}">
+          <span class="tag ${f.dir === 'bull' ? 'tag-bull' : 'tag-bear'}">${f.dir === 'bull' ? 'BFVG' : 'SFVG'}</span>
           <span class="fvg-range">$${formatPrice(f.bottom)} – $${formatPrice(f.top)}</span>
           <span class="fvg-size">${f.size.toFixed(2)}%</span>
-        </div>`).join('');
+          <span style="font-size:8px;color:${statusColor};letter-spacing:0.06em;margin-left:auto">${statusLabel}</span>
+        </div>`;
+      }).join('');
     } else {
       fvgEl.innerHTML = `<div class="empty-state" style="height:30px;font-size:8px">NO ACTIVE FVGs</div>`;
     }
@@ -526,180 +545,228 @@ function populateStructurePanel(analysis, signal) {
   const srEl = document.getElementById('sr-levels');
   const sr   = analysis.srLevels || [];
   if (srEl && sr.length) {
-    const price2 = analysis.price;
-    const sorted = [...sr].sort((a, b) => Math.abs(a.price - price2) - Math.abs(b.price - price2));
+    const sorted = [...sr].sort((a, b) => Math.abs(a.price - price) - Math.abs(b.price - price));
     srEl.innerHTML = sorted.slice(0, 8).map(l => {
-      const pct  = ((l.price - price2) / price2 * 100).toFixed(2);
-      const col  = l.type === 'support' ? '#00e676' : '#ff4444';
-      return `<div class="sr-chip" style="border-color:${col}">
+      const pct = ((l.price - price) / price * 100).toFixed(2);
+      const col = l.type === 'support' ? '#00e676' : '#ff4444';
+      return `<div class="sr-chip" style="border-color:${col}20">
         <span style="color:${col};font-size:8px">${l.type === 'support' ? 'S' : 'R'}</span>
         <span>$${formatPrice(l.price)}</span>
         <span style="color:#5a6470">${pct > 0 ? '+' : ''}${pct}%</span>
       </div>`;
     }).join('');
   }
+
+  // ── MTF Bias Table ─────────────────────────────────────────────
+  renderMTFBiasTable(analysis, rawData);
+}
+
+// ── MTF Bias Table renderer ────────────────────────────────────
+// Writes into #mtf-bias-table (added to index.html centre panel)
+function renderMTFBiasTable(analysis, data) {
+  const el = document.getElementById('mtf-bias-table');
+  if (!el) return;
+
+  const rows = generateMTFBias(analysis, data);
+
+  const trendTag = (trend, tf) => {
+    if (!trend || trend === '—') return `<span style="color:#5a6470">—</span>`;
+    const isBull = trend === 'bull';
+    const bg     = isBull ? 'rgba(0,230,118,0.12)' : 'rgba(255,68,68,0.12)';
+    const col    = isBull ? '#00e676' : '#ff4444';
+    const isCurrent = tf === currentTF.toUpperCase();
+    return `<span style="display:inline-block;padding:1px 6px;background:${bg};color:${col};font-size:8px;font-weight:600;letter-spacing:0.06em">${trend.toUpperCase()}${isCurrent ? ' ◀' : ''}</span>`;
+  };
+
+  el.innerHTML = `
+    <div class="panel-hd panel-hd-inner">
+      <span class="panel-hd-label">MULTI-TIMEFRAME BIAS</span>
+    </div>
+    <div class="mtf-table">
+      <div class="mtf-header-row">
+        <span class="mtf-col-tf">TF</span>
+        <span class="mtf-col-trend">TREND</span>
+        <span class="mtf-col-struct">STRUCTURE</span>
+        <span class="mtf-col-level">KEY LEVEL</span>
+        <span class="mtf-col-dist">DIST%</span>
+      </div>
+      ${rows.map(r => {
+        const levelStr = r.keyLevel ? `$${formatPrice(r.keyLevel.price)}` : '—';
+        const distStr  = r.distPct != null ? `${r.distPct >= 0 ? '+' : ''}${r.distPct.toFixed(2)}%` : '—';
+        const distCol  = r.distPct == null ? '#5a6470' : r.distPct >= 0 ? '#00e676' : '#ff4444';
+        return `<div class="mtf-row">
+          <span class="mtf-col-tf">${r.tf}</span>
+          <span class="mtf-col-trend">${trendTag(r.trend, r.tf)}</span>
+          <span class="mtf-col-struct">${r.structure !== '—'
+            ? `<span class="tag tag-bos" style="font-size:7px">${r.structure}</span>`
+            : '<span style="color:#5a6470">—</span>'}</span>
+          <span class="mtf-col-level">${levelStr}</span>
+          <span class="mtf-col-dist" style="color:${distCol}">${distStr}</span>
+        </div>`;
+      }).join('')}
+    </div>`;
 }
 
 // ════════════════════════════════════════════════════════════════
-//  TRADE PANEL — writes to #panel-trade static elements
+//  TRADE PANEL
+//  KEY CHANGES vs v2:
+//    • Prices in large cards are 16px (up from 14px)
+//    • Bull/Bear scenario block always rendered
+//    • Invalidation always rendered (not hidden)
+//    • Confluence bars always visible below setup
+//    • ENTRY / SL individual big cards (matching target layout)
+//    • TP1 / TP2 / TP3 get individual large cards
 // ════════════════════════════════════════════════════════════════
 function populateTradePanel(analysis, signal, data) {
-  // Decision strip already handled by populateDecisionBar()
-  // Populate #scenarios-wrap with full setup or no-setup notice
   const wrap = document.getElementById('scenarios-wrap');
   if (!wrap) return;
 
   const s = signal?.setup;
+
   if (!s) {
     wrap.innerHTML = `
       <div class="empty-state" style="padding:24px 16px;text-align:center">
         <div class="empty-glyph">⏳</div>
-        <div style="color:#ffd54f;font-size:10px;margin:8px 0">NO SETUP — CONFLUENCE INSUFFICIENT</div>
-        <div style="color:#5a6470;font-size:8px">Score: ${signal?.normalizedScore || 0} · ${signal?.biasLabel || 'NEUTRAL'}<br>
-        Wait for BOS/CHoCH + OB retest + FVG fill</div>
+        <div style="color:#ffd54f;font-size:10px;margin:8px 0 4px">NO SETUP — CONFLUENCE INSUFFICIENT</div>
+        <div style="color:#5a6470;font-size:8px">Score: ${signal?.normalizedScore || 0} · ${signal?.biasLabel || 'NEUTRAL'}</div>
+        <div style="color:#5a6470;font-size:8px;margin-top:3px">Wait for BOS/CHoCH + OB retest + FVG fill</div>
       </div>
       ${buildConfluenceBars(signal)}`;
     return;
   }
 
-  const isLong  = s.direction === 'LONG';
+  const isLong   = s.direction === 'LONG';
   const dirColor = isLong ? '#00e676' : '#ff4444';
+  const scoreStr = `${signal.normalizedScore > 0 ? '+' : ''}${signal.normalizedScore}`;
 
   wrap.innerHTML = `
-    <div class="setup-direction-bar" style="background:${isLong ? 'rgba(0,230,118,0.06)' : 'rgba(255,68,68,0.06)'};border-left:3px solid ${dirColor};padding:10px 14px;margin-bottom:10px;border-radius:4px">
-      <span style="color:${dirColor};font-family:'Syne',sans-serif;font-weight:700;font-size:13px">${isLong ? '⬆ LONG' : '⬇ SHORT'}</span>
-      <span style="float:right;color:${signal.biasColor};font-size:11px">Score: ${signal.normalizedScore > 0 ? '+' : ''}${signal.normalizedScore}</span>
+    <!-- Direction + score header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:${isLong ? 'rgba(0,230,118,0.05)' : 'rgba(255,68,68,0.05)'};border-bottom:1px solid var(--border)">
+      <span style="color:${dirColor};font-family:var(--font-head);font-weight:700;font-size:14px;letter-spacing:0.1em">${isLong ? '⬆ LONG' : '⬇ SHORT'}</span>
+      <span style="color:${signal.biasColor};font-family:var(--font-mono);font-size:11px">Score: ${scoreStr}</span>
     </div>
-    <div class="setup-levels">
+
+    <!-- Entry card -->
+    <div class="trade-level-card" style="border-left:3px solid ${dirColor}">
+      <div class="tlc-label">ENTRY</div>
+      <div class="tlc-price" style="color:${dirColor}">$${formatPrice(s.entry)}</div>
+      <div class="tlc-reason">${s.entryReason}</div>
+    </div>
+
+    <!-- Stop Loss card -->
+    <div class="trade-level-card" style="border-left:3px solid #ff4444">
+      <div class="tlc-label">STOP LOSS</div>
+      <div class="tlc-price" style="color:#ff4444">$${formatPrice(s.sl)}</div>
+      <div class="tlc-reason">${s.slReason}</div>
+    </div>
+
+    <!-- TP row: 3 inline cards -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--border);border-top:1px solid var(--border)">
       ${[
-        { label:'ENTRY',    price: s.entry, reason: s.entryReason, color: dirColor },
-        { label:'STOP LOSS',price: s.sl,    reason: s.slReason,    color: '#ff4444' },
-        { label:`TP1 — ${s.rr1}R`, price: s.tp1, reason: s.tp1Reason, color: '#00e676' },
-        { label:`TP2 — ${s.rr2}R`, price: s.tp2, reason: s.tp2Reason, color: '#00e676' },
-        { label:`TP3 — ${s.rr3}R`, price: s.tp3, reason: s.tp3Reason, color: '#00e676' },
-      ].map(lv => `
-        <div class="setup-level" style="border-left:2px solid ${lv.color}20;padding:8px 10px;margin-bottom:6px;background:rgba(255,255,255,0.02);border-radius:3px">
-          <div style="font-size:8px;color:#5a6470;letter-spacing:.1em">${lv.label}</div>
-          <div style="font-size:14px;color:${lv.color};font-family:'JetBrains Mono',monospace;font-weight:600">$${formatPrice(lv.price)}</div>
-          <div style="font-size:9px;color:#8892a0;margin-top:2px">${lv.reason}</div>
+        { label: `TP1 — ${s.rr1}R`, price: s.tp1, reason: s.tp1Reason },
+        { label: `TP2 — ${s.rr2}R`, price: s.tp2, reason: s.tp2Reason },
+        { label: `TP3 — ${s.rr3}R`, price: s.tp3, reason: s.tp3Reason },
+      ].map(tp => `
+        <div style="background:var(--bg2);padding:8px 10px">
+          <div style="font-size:7px;color:#5a6470;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:3px">${tp.label}</div>
+          <div style="font-size:13px;color:#00e676;font-family:var(--font-mono);font-weight:600">$${formatPrice(tp.price)}</div>
+          <div style="font-size:8px;color:#8892a0;margin-top:2px;line-height:1.5">${tp.reason}</div>
         </div>`).join('')}
     </div>
-    <div style="padding:10px;background:rgba(255,68,68,0.05);border:1px solid rgba(255,68,68,0.15);border-radius:4px;margin:10px 0">
-      <div style="font-size:8px;color:#ff9090;letter-spacing:.1em;margin-bottom:4px">⚠ INVALIDATION</div>
-      <div style="font-size:9px;color:#8892a0">${s.invalidationReason}</div>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
-      <div style="padding:8px;background:rgba(0,230,118,0.04);border:1px solid rgba(0,230,118,0.1);border-radius:4px">
-        <div style="font-size:8px;color:#00e676;letter-spacing:.1em;margin-bottom:4px">BULL SCENARIO</div>
-        <div style="font-size:9px;color:#8892a0">${s.bullScenario}</div>
-      </div>
-      <div style="padding:8px;background:rgba(255,68,68,0.04);border:1px solid rgba(255,68,68,0.1);border-radius:4px">
-        <div style="font-size:8px;color:#ff4444;letter-spacing:.1em;margin-bottom:4px">BEAR SCENARIO</div>
-        <div style="font-size:9px;color:#8892a0">${s.bearScenario}</div>
-      </div>
-    </div>
-    ${buildConfluenceBars(signal)}`;
 
-  // Show confluence breakdown section
+    <!-- ATR reference -->
+    <div style="padding:6px 14px;border-bottom:1px solid var(--border);display:flex;gap:16px">
+      <span style="font-size:9px;color:#5a6470">ATR (14): <span style="color:#ffd54f">${analysis.lastATR ? '$' + formatPrice(analysis.lastATR) : '—'}</span></span>
+      <span style="font-size:9px;color:#5a6470">1× ATR: <span style="color:#ffd54f">${analysis.lastATR ? '$' + formatPrice(analysis.lastATR) : '—'}</span></span>
+      <span style="font-size:9px;color:#5a6470">2× ATR: <span style="color:#ffd54f">${analysis.lastATR ? '$' + formatPrice(analysis.lastATR * 2) : '—'}</span></span>
+    </div>
+
+    <!-- Invalidation block -->
+    <div style="padding:10px 14px;background:rgba(255,68,68,0.04);border-bottom:1px solid rgba(255,68,68,0.12)">
+      <div style="font-size:8px;color:#ff9090;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:5px">⚠ INVALIDATION</div>
+      <div style="font-size:9px;color:#8892a0;line-height:1.6">${s.invalidationReason}</div>
+    </div>
+
+    <!-- Bull / Bear scenario 2-col -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);border-bottom:1px solid var(--border)">
+      <div style="background:var(--bg2);padding:10px 12px">
+        <div style="font-size:8px;color:#00e676;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:5px">BULL SCENARIO</div>
+        <div style="font-size:9px;color:#8892a0;line-height:1.6">${s.bullScenario}</div>
+      </div>
+      <div style="background:var(--bg2);padding:10px 12px">
+        <div style="font-size:8px;color:#ff4444;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:5px">BEAR SCENARIO</div>
+        <div style="font-size:9px;color:#8892a0;line-height:1.6">${s.bearScenario}</div>
+      </div>
+    </div>
+
+    <!-- Confluence breakdown — always visible -->
+    <div style="padding:4px 0">
+      ${buildConfluenceTable(signal)}
+    </div>
+  `;
+
+  // Hide old conf-hd/breakdown (now embedded above)
   const confHd = document.getElementById('conf-hd');
   const confBd = document.getElementById('conf-breakdown');
-  if (confHd) confHd.style.display = '';
-  if (confBd) {
-    confBd.style.display = '';
-    confBd.innerHTML = buildConfluenceBars(signal);
-  }
+  if (confHd) confHd.style.display = 'none';
+  if (confBd) confBd.style.display = 'none';
 }
 
-// ────────────────────────────────────────────────────────────────
-// TAB 1 · TRADE SETUP (legacy — kept but no longer called)
-// ────────────────────────────────────────────────────────────────
+// ── Confluence bars ────────────────────────────────────────────
+function buildConfluenceBars(signal) {
+  if (!signal?.scores) return '<div style="padding:8px 12px;font-size:8px;color:#5a6470">No confluence data</div>';
+  return `
+    <div style="padding:8px 12px">
+      ${Object.entries(signal.scores).map(([k, s]) => `
+        <div class="conf-bar-row">
+          <span class="conf-label">${k}</span>
+          <div class="conf-bar-wrap">
+            <div class="conf-bar-fill" style="width:${Math.abs(s.score / 2) * 100}%;background:${s.score > 0 ? '#00e676' : s.score < 0 ? '#ff4444' : '#5a6470'}"></div>
+          </div>
+          <span class="conf-score" style="color:${s.score > 0 ? '#00e676' : s.score < 0 ? '#ff4444' : '#5a6470'}">${s.score > 0 ? '+' : ''}${s.score.toFixed(1)}</span>
+        </div>`).join('')}
+    </div>`;
+}
+
+// ── Confluence table (compact 2-col, matching target checklist) ─
+function buildConfluenceTable(signal) {
+  if (!signal?.scores) return '';
+  const items = Object.entries(signal.scores).map(([k, s]) => {
+    const aligned  = s.score > 0;
+    const neutral  = s.score === 0;
+    const col      = aligned ? '#00e676' : neutral ? '#5a6470' : '#ff4444';
+    const statusLbl = aligned ? 'ALIGNED' : neutral ? 'NEUTRAL' : 'AGAINST';
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 14px;border-bottom:1px solid rgba(255,255,255,0.04)">
+      <span style="font-size:9px;color:#8892a0;text-transform:capitalize">${k}</span>
+      <span style="font-size:8px;color:${col};letter-spacing:0.08em">${statusLbl}</span>
+    </div>`;
+  });
+  return `
+    <div style="padding:0">
+      <div style="padding:4px 14px;font-size:8px;color:#5a6470;letter-spacing:0.12em;text-transform:uppercase;background:var(--bg3);border-bottom:1px solid var(--border)">SMC CONFLUENCE CHECKLIST</div>
+      ${items.join('')}
+    </div>`;
+}
+
+function buildReasonBlock(reasons, label) {
+  if (!reasons?.length) return '';
+  return `
+    <div class="tab-block">
+      <div class="tab-block-label">${label}</div>
+      ${reasons.map(r => `<div class="drawer-reason">▸ ${r}</div>`).join('')}
+    </div>`;
+}
+
+// ════════════════════════════════════════════════════════════════
+//  LEGACY TAB FUNCTIONS (kept for drawers / backward compat)
+// ════════════════════════════════════════════════════════════════
 function populateTabSetup(analysis, signal, data) {
   const pane = dom.tabSetup();
   if (!pane) return;
-  const s = signal?.setup;
-
-  if (!s) {
-    pane.innerHTML = `
-      <div class="tab-notice">
-        <div class="tab-notice-icon">⏳</div>
-        <div class="tab-notice-title">No Setup Generated</div>
-        <div class="tab-notice-sub">Confluence is insufficient for a trade setup right now.
-        Score: <strong style="color:${signal?.biasColor || '#ffd54f'}">${signal?.normalizedScore || 0}</strong> · Bias: ${signal?.biasLabel || 'NEUTRAL'}<br><br>
-        Wait for a BOS/CHoCH, a retest of a fresh Order Block, and a qualifying FVG fill before entering.</div>
-      </div>
-      ${buildConfluenceBars(signal)}`;
-    return;
-  }
-
-  const isLong  = s.direction === 'LONG';
-  const dirColor = isLong ? '#00e676' : '#ff4444';
-
-  pane.innerHTML = `
-    <!-- Direction header -->
-    <div class="setup-direction-bar" style="background:${isLong ? 'rgba(0,230,118,0.06)' : 'rgba(255,68,68,0.06)'}; border-color:${dirColor}">
-      <span class="setup-dir-label" style="color:${dirColor}">${isLong ? '⬆ LONG' : '⬇ SHORT'}</span>
-      <span class="setup-dir-score">Score: <strong style="color:${signal.biasColor}">${signal.normalizedScore > 0 ? '+' : ''}${signal.normalizedScore}</strong></span>
-    </div>
-
-    <!-- Level cards: entry / sl / tps -->
-    <div class="setup-levels">
-      <div class="setup-level entry">
-        <div class="level-label">ENTRY</div>
-        <div class="level-price">$${formatPrice(s.entry)}</div>
-        <div class="level-reason">${s.entryReason}</div>
-      </div>
-      <div class="setup-level sl">
-        <div class="level-label">STOP LOSS</div>
-        <div class="level-price">$${formatPrice(s.sl)}</div>
-        <div class="level-reason">${s.slReason}</div>
-      </div>
-      <div class="setup-level tp1">
-        <div class="level-label">TP1 — ${s.rr1}R</div>
-        <div class="level-price">$${formatPrice(s.tp1)}</div>
-        <div class="level-reason">${s.tp1Reason}</div>
-      </div>
-      <div class="setup-level tp2">
-        <div class="level-label">TP2 — ${s.rr2}R</div>
-        <div class="level-price">$${formatPrice(s.tp2)}</div>
-        <div class="level-reason">${s.tp2Reason}</div>
-      </div>
-      <div class="setup-level tp3">
-        <div class="level-label">TP3 — ${s.rr3}R</div>
-        <div class="level-price">$${formatPrice(s.tp3)}</div>
-        <div class="level-reason">${s.tp3Reason}</div>
-      </div>
-    </div>
-
-    <!-- Invalidation -->
-    <div class="tab-block">
-      <div class="tab-block-label">⚠ INVALIDATION</div>
-      <div class="tab-block-body tab-warn-text">${s.invalidationReason}</div>
-    </div>
-
-    <!-- Scenarios -->
-    <div class="tab-two-col">
-      <div class="tab-block">
-        <div class="tab-block-label" style="color:#00e676">BULL SCENARIO</div>
-        <div class="tab-block-body">${s.bullScenario}</div>
-      </div>
-      <div class="tab-block">
-        <div class="tab-block-label" style="color:#ff4444">BEAR SCENARIO</div>
-        <div class="tab-block-body">${s.bearScenario}</div>
-      </div>
-    </div>
-
-    <!-- Confluence breakdown -->
-    <div class="tab-block">
-      <div class="tab-block-label">CONFLUENCE BREAKDOWN</div>
-      ${buildConfluenceBars(signal)}
-    </div>
-  `;
+  // Delegate to new trade panel renderer
+  populateTradePanel(analysis, signal, data);
 }
 
-// ────────────────────────────────────────────────────────────────
-// TAB 2 · STRUCTURE & ORDER BLOCKS
-// Market structure events + OBs with inline reason
-// ────────────────────────────────────────────────────────────────
 function populateTabStructure(analysis, signal) {
   const pane = dom.tabStructure();
   if (!pane) return;
@@ -715,7 +782,6 @@ function populateTabStructure(analysis, signal) {
   const htfColor   = htf   === 'bull' ? '#00e676' : htf   === 'bear' ? '#ff4444' : '#ffd54f';
 
   pane.innerHTML = `
-    <!-- Trend state summary -->
     <div class="tab-two-col">
       <div class="tab-stat-block">
         <div class="tab-stat-label">MTF TREND (${currentTF})</div>
@@ -726,8 +792,6 @@ function populateTabStructure(analysis, signal) {
         <div class="tab-stat-value" style="color:${htfColor}">${htf.toUpperCase()}</div>
       </div>
     </div>
-
-    <!-- Structure events -->
     <div class="tab-block">
       <div class="tab-block-label">RECENT STRUCTURE EVENTS</div>
       ${events.length
@@ -739,8 +803,6 @@ function populateTabStructure(analysis, signal) {
           </div>`).join('')
         : '<div class="tab-empty">No structure events detected yet</div>'}
     </div>
-
-    <!-- Fresh Order Blocks -->
     <div class="tab-block">
       <div class="tab-block-label">FRESH ORDER BLOCKS (${freshOBs.length})</div>
       ${freshOBs.length
@@ -751,315 +813,139 @@ function populateTabStructure(analysis, signal) {
               <span class="tab-ob-type">${ob.structureType}</span>
               <span class="tab-ob-range">$${formatPrice(ob.low)} – $${formatPrice(ob.high)}</span>
             </div>
-            <div class="tab-ob-reason">
-              ${ob.type === 'demand'
-                ? `Demand zone at $${formatPrice(ob.low)}–$${formatPrice(ob.high)}. Last bearish candle before bullish impulse. Watch for bullish engulf on retest.`
-                : `Supply zone at $${formatPrice(ob.low)}–$${formatPrice(ob.high)}. Last bullish candle before bearish impulse. Watch for bearish rejection on retest.`}
-            </div>
           </div>`).join('')
         : '<div class="tab-empty">No fresh order blocks in current range</div>'}
     </div>
-
-    <!-- Mitigated OBs summary -->
-    ${obs.filter(ob => ob.state === 'mitigated').length
-      ? `<div class="tab-block">
-          <div class="tab-block-label">MITIGATED OBs — ${obs.filter(ob => ob.state === 'mitigated').length} zones</div>
-          <div class="tab-muted-text">These zones have been tapped by price and are no longer active. Price may re-test but reliability is lower.</div>
-         </div>`
-      : ''}
-
-    <!-- RSI Divergences -->
-    <div class="tab-block">
-      <div class="tab-block-label">RSI DIVERGENCES</div>
-      ${divs.length
-        ? divs.map(d => `
-          <div class="tab-ob ${d.type === 'bullish' ? 'tab-ob-demand' : 'tab-ob-supply'}">
-            <div class="tab-ob-header">
-              <span class="tag ${d.type === 'bullish' ? 'tag-bull' : 'tag-bear'}">${d.type.toUpperCase()} DIV</span>
-            </div>
-            <div class="tab-ob-reason">
-              Price at $${formatPrice(d.priceNow)} (${d.priceNow > d.pricePrev ? 'higher high' : 'lower low'}) while RSI moved from ${d.rsiPrev.toFixed(1)} → ${d.rsiNow.toFixed(1)} (${d.rsiNow > d.rsiPrev ? 'higher' : 'lower'}).
-              ${d.type === 'bullish' ? 'Hidden buying pressure — momentum building under the surface.' : 'Momentum exhaustion — distribution likely.'}
-            </div>
-          </div>`).join('')
-        : '<div class="tab-empty">No RSI divergences detected in recent candles</div>'}
-    </div>
-
-    <!-- Structure confluence reasons -->
     ${buildReasonBlock(signal?.scores?.structure?.reasons, 'STRUCTURE CONFLUENCE')}
   `;
 }
 
-// ────────────────────────────────────────────────────────────────
-// TAB 3 · LEVELS & FVGs
-// Premium/Discount + Fibonacci + FVGs + Liquidation map
-// ────────────────────────────────────────────────────────────────
 function populateTabLevels(analysis, signal) {
   const pane = dom.tabLevels();
   if (!pane) return;
 
-  const pd  = analysis.premDisc;
+  const pd   = analysis.premDisc;
   const fvgs = analysis.fvgs || [];
   const liq  = analysis.liqLevels;
+  const price = analysis.price;
 
   const zoneColor = !pd ? '#ffd54f' : pd.zone === 'discount' ? '#00e676' : pd.zone === 'premium' ? '#ff4444' : '#ffd54f';
 
-  const fibLevels = pd ? [
-    { label: 'Range High',        pct: '100%', price: pd.rangeHigh, color: '#ff4444' },
-    { label: '70.5%',             pct: '70.5%',price: pd.fib705,    color: '#ff7c7c' },
-    { label: '61.8% — Premium',   pct: '61.8%',price: pd.fib618,    color: '#ffa0a0' },
-    { label: '50% — Equilibrium', pct: '50.0%',price: pd.fib50,     color: '#ffd54f' },
-    { label: '38.2% — Discount',  pct: '38.2%',price: pd.fib382,    color: '#69f0ae' },
-    { label: '23.6%',             pct: '23.6%',price: pd.fib236,    color: '#00e676' },
-    { label: 'Range Low',         pct: '0%',   price: pd.rangeLow,  color: '#00e676' },
-  ] : [];
-
   pane.innerHTML = `
-    <!-- Premium / Discount -->
     <div class="tab-block">
       <div class="tab-block-label">PREMIUM / DISCOUNT ZONE</div>
       ${pd ? `
         <div class="tab-two-col" style="margin-bottom:10px">
-          <div class="tab-stat-block">
-            <div class="tab-stat-label">CURRENT ZONE</div>
-            <div class="tab-stat-value" style="color:${zoneColor}">${pd.zone.toUpperCase()}</div>
-          </div>
-          <div class="tab-stat-block">
-            <div class="tab-stat-label">RANGE POSITION</div>
-            <div class="tab-stat-value" style="color:${zoneColor}">${(pd.position * 100).toFixed(1)}%</div>
-          </div>
-        </div>
-        <div class="tab-pd-explain">
-          ${pd.zone === 'discount'
-            ? '📌 Price is in a DISCOUNT zone (below 50%). Smart money looks to buy here. Favorable for longs if structure confirms.'
-            : pd.zone === 'premium'
-            ? '📌 Price is in a PREMIUM zone (above 50%). Smart money looks to sell here. Favorable for shorts if structure confirms.'
-            : '📌 Price is at EQUILIBRIUM (near 50%). Market is fairly valued — wait for a directional move away from this zone.'}
+          <div class="tab-stat-block"><div class="tab-stat-label">CURRENT ZONE</div><div class="tab-stat-value" style="color:${zoneColor}">${pd.zone.toUpperCase()}</div></div>
+          <div class="tab-stat-block"><div class="tab-stat-label">RANGE POSITION</div><div class="tab-stat-value" style="color:${zoneColor}">${(pd.position * 100).toFixed(1)}%</div></div>
         </div>` : '<div class="tab-empty">Premium/Discount data unavailable</div>'}
     </div>
-
-    <!-- Fibonacci Levels -->
-    ${pd ? `
-    <div class="tab-block">
-      <div class="tab-block-label">FIBONACCI LEVELS</div>
-      <div class="tab-fib-grid">
-        ${fibLevels.map(l => `
-          <div class="tab-fib-row">
-            <span class="tab-fib-pct" style="color:${l.color}">${l.pct}</span>
-            <span class="tab-fib-label">${l.label}</span>
-            <span class="tab-fib-price">$${formatPrice(l.price)}</span>
-          </div>`).join('')}
-      </div>
-    </div>` : ''}
-
-    <!-- Fair Value Gaps -->
     <div class="tab-block">
       <div class="tab-block-label">FAIR VALUE GAPS (${fvgs.length} active)</div>
       ${fvgs.length
-        ? fvgs.slice().reverse().map(f => `
-          <div class="tab-ob ${f.dir === 'bull' ? 'tab-ob-demand' : 'tab-ob-supply'}">
-            <div class="tab-ob-header">
-              <span class="tag ${f.dir === 'bull' ? 'tag-bull' : 'tag-bear'}">${f.dir.toUpperCase()} FVG</span>
-              <span class="tab-ob-type">${f.size.toFixed(3)}% gap</span>
-              <span class="tab-ob-range">$${formatPrice(f.bottom)} – $${formatPrice(f.top)}</span>
-            </div>
-            <div class="tab-ob-reason">
-              ${f.dir === 'bull'
-                ? `Bullish imbalance — no trading between $${formatPrice(f.bottom)} and $${formatPrice(f.top)}. Price tends to fill this gap before resuming up.`
-                : `Bearish imbalance — no trading between $${formatPrice(f.bottom)} and $${formatPrice(f.top)}. Acts as overhead resistance.`}
-            </div>
-          </div>`).join('')
-        : '<div class="tab-empty">No unfilled FVGs detected in current range</div>'}
+        ? fvgs.slice().reverse().map(f => {
+            const filled = (f.dir === 'bull' && price > f.top) || (f.dir === 'bear' && price < f.bottom);
+            return `<div class="tab-ob ${f.dir === 'bull' ? 'tab-ob-demand' : 'tab-ob-supply'}">
+              <div class="tab-ob-header">
+                <span class="tag ${f.dir === 'bull' ? 'tag-bull' : 'tag-bear'}">${f.dir.toUpperCase()} FVG</span>
+                <span class="tab-ob-type">${f.size.toFixed(3)}% gap</span>
+                <span class="tab-ob-range">$${formatPrice(f.bottom)} – $${formatPrice(f.top)}</span>
+                <span style="font-size:8px;color:${filled ? '#5a6470' : '#00e676'};margin-left:auto">${filled ? 'FILLED' : 'OPEN'}</span>
+              </div>
+            </div>`;
+          }).join('')
+        : '<div class="tab-empty">No unfilled FVGs detected</div>'}
     </div>
-
-    <!-- Liquidation Map -->
     ${liq ? `
     <div class="tab-block">
       <div class="tab-block-label">LIQUIDATION MAP</div>
-      <div class="tab-explain-text">Estimated leverage liquidation levels based on recent swing high/low. These act as liquidity targets — price often hunts these levels before reversing.</div>
       <div class="tab-liq-grid">
         <div class="tab-liq-col">
           <div class="tab-liq-header" style="color:#ff4444">SHORT LIQUIDATIONS</div>
-          ${liq.shortLiqs.map(l => `
-            <div class="tab-liq-row">
-              <span>${l.label}</span>
-              <span style="color:#ff4444">$${formatPrice(l.price)}</span>
-              <span class="tab-muted-text">+${((l.price / liq.swingHigh - 1) * 100).toFixed(1)}%</span>
-            </div>`).join('')}
+          ${liq.shortLiqs.map(l => `<div class="tab-liq-row"><span>${l.label}</span><span style="color:#ff4444">$${formatPrice(l.price)}</span><span class="tab-muted-text">+${((l.price / liq.swingHigh - 1) * 100).toFixed(1)}%</span></div>`).join('')}
         </div>
         <div class="tab-liq-col">
           <div class="tab-liq-header" style="color:#00e676">LONG LIQUIDATIONS</div>
-          ${liq.longLiqs.map(l => `
-            <div class="tab-liq-row">
-              <span>${l.label}</span>
-              <span style="color:#00e676">$${formatPrice(l.price)}</span>
-              <span class="tab-muted-text">${((l.price / liq.swingLow - 1) * 100).toFixed(1)}%</span>
-            </div>`).join('')}
+          ${liq.longLiqs.map(l => `<div class="tab-liq-row"><span>${l.label}</span><span style="color:#00e676">$${formatPrice(l.price)}</span><span class="tab-muted-text">${((l.price / liq.swingLow - 1) * 100).toFixed(1)}%</span></div>`).join('')}
         </div>
       </div>
     </div>` : ''}
   `;
 }
 
-// ────────────────────────────────────────────────────────────────
-// TAB 4 · DERIVATIVES
-// Funding + OI + Taker flow + Order book depth
-// ────────────────────────────────────────────────────────────────
 function populateTabDerivatives(data, analysis, signal) {
   const pane = dom.tabDerivatives();
   if (!pane) return;
-
-  const t   = data.ticker;
-  const fr  = t?.fundingRate || 0;
-  const frColor = fr < -0.01 ? '#00e676' : fr > 0.05 ? '#ff4444' : '#8892a0';
-
-  const oiData    = data.oiHistory || [];
-  const oiLen     = oiData.length;
-  const oiTrend   = oiLen >= 2
-    ? oiData[oiLen - 1].oi > oiData[0].oi ? '▲ Rising' : '▼ Falling'
-    : '—';
-  const oiTrendColor = oiTrend.includes('Rising') ? '#00e676' : '#ff4444';
-
-  const tf  = data.takerFlow;
-  const ob  = analysis.obAnalysis;
-  const hist = data.fundingHist?.slice(-8) || [];
-
-  const frExplain = fr < -0.05
-    ? '🔥 Extremely negative — shorts heavily paying longs. High short squeeze risk. Historically bullish contrarian signal.'
-    : fr < -0.01
-    ? 'Negative funding — mild bearish sentiment in derivatives. Supportive for spot longs.'
-    : fr > 0.1
-    ? '⚠ Very high positive funding — longs paying shorts heavily. Overheated — long liquidation risk elevated.'
-    : fr > 0.03
-    ? 'Elevated positive funding — market leaning long. Watch for leverage flush.'
-    : 'Neutral funding rate — no significant derivatives-driven pressure in either direction.';
-
-  pane.innerHTML = `
-    <!-- Funding Rate -->
-    <div class="tab-two-col">
-      <div class="tab-stat-block">
-        <div class="tab-stat-label">CURRENT FUNDING</div>
-        <div class="tab-stat-value" style="color:${frColor}">${fr.toFixed(4)}%</div>
-      </div>
-      <div class="tab-stat-block">
-        <div class="tab-stat-label">OPEN INTEREST</div>
-        <div class="tab-stat-value" style="color:${oiTrendColor}">${oiTrend}</div>
-      </div>
-    </div>
-    <div class="tab-block" style="margin-top:0">
-      <div class="tab-explain-text">${frExplain}</div>
-    </div>
-
-    <!-- Funding history -->
-    <div class="tab-block">
-      <div class="tab-block-label">FUNDING RATE HISTORY (last ${hist.length})</div>
-      ${hist.length
-        ? `<div class="tab-funding-bars">
-            ${hist.map(h => {
-              const pct = Math.min(Math.abs(h.rate) / 0.1 * 100, 100);
-              const col = h.rate < 0 ? '#00e676' : '#ff4444';
-              return `<div class="tab-funding-bar-row">
-                <span class="tab-funding-date">${new Date(h.time * 1000).toLocaleDateString('en-US', { month:'short', day:'numeric' })}</span>
-                <div class="tab-funding-bar-wrap">
-                  <div class="tab-funding-bar-fill" style="width:${pct}%;background:${col}"></div>
-                </div>
-                <span class="tab-funding-val" style="color:${col}">${h.rate.toFixed(4)}%</span>
-              </div>`;
-            }).join('')}
-           </div>`
-        : '<div class="tab-empty">No funding history available</div>'}
-    </div>
-
-    <!-- OI Snapshots -->
-    <div class="tab-block">
-      <div class="tab-block-label">OPEN INTEREST SNAPSHOTS</div>
-      ${oiData.slice(-6).map(o => `
-        <div class="tab-event-row">
-          <span style="color:#5a6470">${new Date(o.time * 1000).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' })}</span>
-          <span>${formatLarge(o.oi)}</span>
-        </div>`).join('') || '<div class="tab-empty">No OI history available</div>'}
-    </div>
-
-    <!-- Taker Flow -->
-    ${tf ? `
-    <div class="tab-block">
-      <div class="tab-block-label">TAKER FLOW BIAS</div>
-      <div class="depth-bar-wrap">
-        <div class="depth-bid" style="width:${(tf.buyRatio * 100).toFixed(1)}%">Buy ${(tf.buyRatio * 100).toFixed(0)}%</div>
-        <div class="depth-ask" style="width:${(tf.sellRatio * 100).toFixed(1)}%">Sell ${(tf.sellRatio * 100).toFixed(0)}%</div>
-      </div>
-      <div class="tab-event-row" style="margin-top:6px">
-        <span>Net taker bias</span>
-        <span style="color:${tf.takerBias > 0 ? '#00e676' : '#ff4444'}">${tf.takerBias > 0 ? '+' : ''}${tf.takerBias.toFixed(1)}% net ${tf.takerBias > 0 ? 'buy' : 'sell'}</span>
-      </div>
-    </div>` : ''}
-
-    <!-- Order Book Depth -->
-    ${ob ? `
-    <div class="tab-block">
-      <div class="tab-block-label">ORDER BOOK DEPTH — ${ob.bias.toUpperCase()}</div>
-      <div class="depth-bar-wrap">
-        <div class="depth-bid" style="width:${(ob.bidAskRatio * 100).toFixed(1)}%">Bids ${(ob.bidAskRatio * 100).toFixed(0)}%</div>
-        <div class="depth-ask" style="width:${((1 - ob.bidAskRatio) * 100).toFixed(1)}%">Asks ${((1 - ob.bidAskRatio) * 100).toFixed(0)}%</div>
-      </div>
-      <div class="tab-two-col" style="margin-top:8px">
-        <div class="tab-block" style="margin-bottom:0">
-          <div class="tab-block-label" style="color:#00e676">BID WALLS (${ob.bidWalls.length})</div>
-          ${ob.bidWalls.slice(0,4).map(w => `
-            <div class="tab-event-row">
-              <span>$${formatPrice(w.price)}</span>
-              <span style="color:#00e676">${w.size.toFixed(1)}</span>
-            </div>`).join('') || '<span class="tab-muted-text">None detected</span>'}
-        </div>
-        <div class="tab-block" style="margin-bottom:0">
-          <div class="tab-block-label" style="color:#ff4444">ASK WALLS (${ob.askWalls.length})</div>
-          ${ob.askWalls.slice(0,4).map(w => `
-            <div class="tab-event-row">
-              <span>$${formatPrice(w.price)}</span>
-              <span style="color:#ff4444">${w.size.toFixed(1)}</span>
-            </div>`).join('') || '<span class="tab-muted-text">None detected</span>'}
-        </div>
-      </div>
-    </div>` : ''}
-
-    ${buildReasonBlock(signal?.scores?.derivatives?.reasons, 'DERIVATIVES CONFLUENCE')}
-  `;
+  // Delegate to left panel population
+  populateDerivativesPanel(data, analysis);
 }
 
-// ── Shared sub-components ──────────────────────────────────────
-function buildConfluenceBars(signal) {
-  if (!signal?.scores) return '<div class="tab-empty">No confluence data</div>';
-  return `
-    <div class="confluence-bars">
-      ${Object.entries(signal.scores).map(([k, s]) => `
-        <div class="conf-bar-row">
-          <span class="conf-label">${k}</span>
-          <div class="conf-bar-wrap">
-            <div class="conf-bar-fill" style="width:${Math.abs(s.score / 2) * 100}%;background:${s.score > 0 ? '#00e676' : s.score < 0 ? '#ff4444' : '#5a6470'}"></div>
+// ════════════════════════════════════════════════════════════════
+//  MINI CHARTS
+// ════════════════════════════════════════════════════════════════
+function renderMiniCharts(data, analysis) {
+  const rsiEl  = dom.rsiContainer();
+  const macdEl = dom.macdContainer();
+  if (rsiEl)  renderRSIPanel(rsiEl, analysis.rsi);
+  if (macdEl) renderMACDPanel(macdEl, analysis.macd);
+
+  const fundEl = dom.fundingMini();
+  if (fundEl && data.fundingHist?.length) {
+    svgSparkline(fundEl, data.fundingHist.map(h => h.rate), '#ffd54f', 0.2);
+  }
+
+  const oiEl = dom.oiMini();
+  if (oiEl && data.oiHistory?.length) {
+    const rising = data.oiHistory.slice(-1)[0]?.oi > data.oiHistory[0]?.oi;
+    svgSparkline(oiEl, data.oiHistory.map(o => o.oi), rising ? '#00e676' : '#ff4444', 0.15);
+  }
+
+  const liqEl = dom.liqContainer();
+  if (liqEl && analysis.liqLevels) {
+    const liq   = analysis.liqLevels;
+    const price = analysis.price;
+    const items = [
+      ...liq.shortLiqs.slice(0, 3).map(l => ({ label: l.label, price: l.price, side: 'short' })),
+      ...liq.longLiqs.slice(0, 3).map(l => ({ label: l.label, price: l.price, side: 'long' })),
+    ].sort((a, b) => b.price - a.price);
+    liqEl.innerHTML = `<div style="padding:4px 8px;display:flex;flex-direction:column;gap:2px;height:100%">
+      ${items.map(l => {
+        const pct = ((l.price - price) / price * 100).toFixed(1);
+        const col = l.side === 'short' ? '#ff4444' : '#00e676';
+        return `<div style="display:flex;align-items:center;gap:4px;flex:1">
+          <span style="font-size:7px;color:${col};width:28px;flex-shrink:0">${l.label}</span>
+          <div style="flex:1;height:2px;background:rgba(255,255,255,0.06);border-radius:1px">
+            <div style="width:${Math.min(Math.abs(parseFloat(pct)) * 8, 100)}%;height:100%;background:${col};border-radius:1px"></div>
           </div>
-          <span class="conf-score" style="color:${s.score > 0 ? '#00e676' : s.score < 0 ? '#ff4444' : '#5a6470'}">${s.score > 0 ? '+' : ''}${s.score.toFixed(1)}</span>
-        </div>`).join('')}
+          <span style="font-size:7px;color:#5a6470;width:36px;text-align:right">${pct}%</span>
+        </div>`;
+      }).join('')}
     </div>`;
+  }
 }
 
-function buildReasonBlock(reasons, label) {
-  if (!reasons?.length) return '';
-  return `
-    <div class="tab-block">
-      <div class="tab-block-label">${label}</div>
-      ${reasons.map(r => `<div class="drawer-reason">▸ ${r}</div>`).join('')}
-    </div>`;
+// ── Tab switching ──────────────────────────────────────────────
+function initTabs() {
+  document.querySelectorAll('.intel-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.intel-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.intel-pane').forEach(p => p.classList.remove('active'));
+      tab.classList.add('active');
+      const pane = document.getElementById(`tab-${tab.dataset.tab}`);
+      if (pane) pane.classList.add('active');
+    });
+  });
 }
 
-// ── Drawer System (still available — click from tabs if needed) ─
+// ── Drawer System ──────────────────────────────────────────────
 function openDrawer(type) {
   const panel   = dom.drawerPanel();
   const title   = dom.drawerTitle();
   const content = dom.drawerContent();
   if (!panel || !title || !content) return;
   const { html, titleText } = buildDrawerContent(type, analysis, signal, rawData);
-  title.textContent = titleText;
-  content.innerHTML = html;
+  title.textContent  = titleText;
+  content.innerHTML  = html;
   panel.classList.add('open');
 }
 function closeDrawer() {
@@ -1083,7 +969,7 @@ function buildDrawerContent(type, analysis, signal, data) {
 function drawerStructure(analysis) {
   const { structure, htfStructure } = analysis;
   const events = structure?.events?.slice(-8).reverse() || [];
-  const rows = events.map(ev => `
+  const rows   = events.map(ev => `
     <div class="drawer-row">
       <span class="tag ${ev.type === 'CHoCH' ? 'tag-warn' : ev.dir === 'bull' ? 'tag-bull' : 'tag-bear'}">${ev.type}</span>
       <span>${ev.dir === 'bull' ? '↑ Bullish' : '↓ Bearish'}</span>
@@ -1092,20 +978,13 @@ function drawerStructure(analysis) {
   return {
     titleText: '⚡ Market Structure Analysis',
     html: `
-    <div class="drawer-section">
-      <div class="drawer-label">TREND STATE</div>
-      <div class="drawer-big" style="color:${structure?.trend === 'bull' ? '#00e676' : '#ff4444'}">${structure?.trend?.toUpperCase() || 'NEUTRAL'}</div>
-      <div class="drawer-sub">HTF (4H): ${htfStructure?.trend?.toUpperCase() || 'N/A'}</div>
-    </div>
-    <div class="drawer-section">
-      <div class="drawer-label">RECENT STRUCTURE EVENTS</div>
-      ${rows || '<div class="drawer-empty">No events detected</div>'}
-    </div>
+    <div class="drawer-section"><div class="drawer-label">TREND STATE</div><div class="drawer-big" style="color:${structure?.trend === 'bull' ? '#00e676' : '#ff4444'}">${structure?.trend?.toUpperCase() || 'NEUTRAL'}</div><div class="drawer-sub">HTF (4H): ${htfStructure?.trend?.toUpperCase() || 'N/A'}</div></div>
+    <div class="drawer-section"><div class="drawer-label">RECENT STRUCTURE EVENTS</div>${rows || '<div class="drawer-empty">No events detected</div>'}</div>
     ${buildReasonBlock(signal?.scores?.structure?.reasons, 'STRUCTURE CONFLUENCE')}`,
   };
 }
 function drawerOrderBlocks(analysis) {
-  const obs = analysis.orderBlocks;
+  const obs  = analysis.orderBlocks;
   const rows = obs.slice().reverse().map(ob => `
     <div class="drawer-ob ${ob.type === 'demand' ? 'ob-demand' : 'ob-supply'}">
       <div class="ob-header">
@@ -1114,7 +993,6 @@ function drawerOrderBlocks(analysis) {
         <span class="ob-state ${ob.state}">${ob.state.toUpperCase()}</span>
       </div>
       <div class="ob-levels"><span>High: $${formatPrice(ob.high)}</span><span>Low: $${formatPrice(ob.low)}</span><span>${((ob.high - ob.low) / ob.low * 100).toFixed(2)}%</span></div>
-      <div class="ob-reason">${ob.type === 'demand' ? `Demand zone $${formatPrice(ob.low)}–$${formatPrice(ob.high)}. Institutional buying expected on retest.` : `Supply zone $${formatPrice(ob.low)}–$${formatPrice(ob.high)}. Institutional selling expected on retest.`}</div>
     </div>`).join('');
   return {
     titleText: '🧱 Order Blocks',
@@ -1127,7 +1005,6 @@ function drawerFVG(analysis) {
     <div class="drawer-ob ${f.dir === 'bull' ? 'ob-demand' : 'ob-supply'}">
       <div class="ob-header"><span class="tag ${f.dir === 'bull' ? 'tag-bull' : 'tag-bear'}">${f.dir.toUpperCase()} FVG</span><span>${f.size.toFixed(3)}%</span></div>
       <div class="ob-levels"><span>Top: $${formatPrice(f.top)}</span><span>Bottom: $${formatPrice(f.bottom)}</span><span>Mid: $${formatPrice(f.mid)}</span></div>
-      <div class="ob-reason">${f.dir === 'bull' ? `Bullish imbalance — magnet for price to fill $${formatPrice(f.bottom)}–$${formatPrice(f.top)}.` : `Bearish imbalance — overhead resistance at $${formatPrice(f.bottom)}–$${formatPrice(f.top)}.`}</div>
     </div>`).join('');
   return { titleText: '📐 Fair Value Gaps', html: `<div class="drawer-section"><div class="drawer-label">ACTIVE FVGs (${fvgs.length})</div>${rows || '<div class="drawer-empty">None</div>'}</div>` };
 }
@@ -1137,11 +1014,9 @@ function drawerPremDisc(analysis) {
   const zoneColor = pd.zone === 'discount' ? '#00e676' : pd.zone === 'premium' ? '#ff4444' : '#ffd54f';
   const levels = [
     { label: 'Range High (100%)', price: pd.rangeHigh, color: '#ff4444' },
-    { label: '70.5%',             price: pd.fib705,    color: '#ff7c7c' },
     { label: '61.8% (Premium)',   price: pd.fib618,    color: '#ffa0a0' },
     { label: '50% (EQ)',          price: pd.fib50,     color: '#ffd54f' },
     { label: '38.2% (Discount)',  price: pd.fib382,    color: '#69f0ae' },
-    { label: '23.6%',             price: pd.fib236,    color: '#00e676' },
     { label: 'Range Low (0%)',    price: pd.rangeLow,  color: '#00e676' },
   ];
   return {
@@ -1152,8 +1027,8 @@ function drawerPremDisc(analysis) {
   };
 }
 function drawerDerivatives(data, analysis) {
-  const t = data.ticker;
-  const fr = t?.fundingRate || 0;
+  const t    = data.ticker;
+  const fr   = t?.fundingRate || 0;
   const hist = data.fundingHist?.slice(-10) || [];
   const oiData = data.oiHistory?.slice(-8) || [];
   return {
@@ -1175,7 +1050,7 @@ function drawerLiquidation(analysis) {
 }
 function drawerSetup(signal, analysis) {
   if (!signal?.setup) return { titleText: 'Trade Setup', html: '<div class="drawer-empty">No setup — confluence insufficient.</div>' };
-  const s = signal.setup;
+  const s      = signal.setup;
   const isLong = s.direction === 'LONG';
   return {
     titleText: `${isLong ? '⬆' : '⬇'} ${s.direction} Setup`,
@@ -1184,15 +1059,13 @@ function drawerSetup(signal, analysis) {
       <div class="setup-level entry"><div class="level-label">ENTRY</div><div class="level-price">$${formatPrice(s.entry)}</div><div class="level-reason">${s.entryReason}</div></div>
       <div class="setup-level sl"><div class="level-label">STOP LOSS</div><div class="level-price">$${formatPrice(s.sl)}</div><div class="level-reason">${s.slReason}</div></div>
       <div class="setup-level tp1"><div class="level-label">TP1 — ${s.rr1}R</div><div class="level-price">$${formatPrice(s.tp1)}</div><div class="level-reason">${s.tp1Reason}</div></div>
-      <div class="setup-level tp2"><div class="level-label">TP2 — ${s.rr2}R</div><div class="level-price">$${formatPrice(s.tp2)}</div><div class="level-reason">${s.tp2Reason}</div></div>
-      <div class="setup-level tp3"><div class="level-label">TP3 — ${s.rr3}R</div><div class="level-price">$${formatPrice(s.tp3)}</div><div class="level-reason">${s.tp3Reason}</div></div>
     </div>
     <div class="drawer-section"><div class="drawer-label">INVALIDATION</div><div class="drawer-reason" style="color:#ff9090">⚠ ${s.invalidationReason}</div></div>
     <div class="drawer-section"><div class="drawer-label">CONFLUENCE</div>${buildConfluenceBars(signal)}</div>`,
   };
 }
 function drawerRSI(analysis) {
-  const rsi = analysis.lastRSI;
+  const rsi  = analysis.lastRSI;
   const divs = analysis.divs;
   return {
     titleText: '📊 RSI + MACD',
@@ -1214,12 +1087,12 @@ function drawerOrderBook(analysis) {
     html: `
     <div class="drawer-section">
       <div class="depth-bar-wrap">
-        <div class="depth-bid" style="width:${(ob.bidAskRatio*100).toFixed(1)}%">Bids ${(ob.bidAskRatio*100).toFixed(0)}%</div>
-        <div class="depth-ask" style="width:${((1-ob.bidAskRatio)*100).toFixed(1)}%">Asks ${((1-ob.bidAskRatio)*100).toFixed(0)}%</div>
+        <div class="depth-bid" style="width:${(ob.bidAskRatio * 100).toFixed(1)}%">Bids ${(ob.bidAskRatio * 100).toFixed(0)}%</div>
+        <div class="depth-ask" style="width:${((1 - ob.bidAskRatio) * 100).toFixed(1)}%">Asks ${((1 - ob.bidAskRatio) * 100).toFixed(0)}%</div>
       </div>
     </div>
-    <div class="drawer-section"><div class="drawer-label">BID WALLS</div>${ob.bidWalls.slice(0,5).map(w=>`<div class="drawer-row"><span>$${formatPrice(w.price)}</span><span style="color:#00e676">${w.size.toFixed(1)}</span></div>`).join('')||'<div class="drawer-empty">None</div>'}</div>
-    <div class="drawer-section"><div class="drawer-label">ASK WALLS</div>${ob.askWalls.slice(0,5).map(w=>`<div class="drawer-row"><span>$${formatPrice(w.price)}</span><span style="color:#ff4444">${w.size.toFixed(1)}</span></div>`).join('')||'<div class="drawer-empty">None</div>'}</div>`,
+    <div class="drawer-section"><div class="drawer-label">BID WALLS</div>${ob.bidWalls.slice(0, 5).map(w => `<div class="drawer-row"><span>$${formatPrice(w.price)}</span><span style="color:#00e676">${w.size.toFixed(1)}</span></div>`).join('') || '<div class="drawer-empty">None</div>'}</div>
+    <div class="drawer-section"><div class="drawer-label">ASK WALLS</div>${ob.askWalls.slice(0, 5).map(w => `<div class="drawer-row"><span>$${formatPrice(w.price)}</span><span style="color:#ff4444">${w.size.toFixed(1)}</span></div>`).join('') || '<div class="drawer-empty">None</div>'}</div>`,
   };
 }
 
@@ -1231,9 +1104,9 @@ function formatPrice(p) {
   return p.toFixed(6);
 }
 function formatLarge(n) {
-  if (n >= 1e9)  return (n / 1e9).toFixed(2) + 'B';
-  if (n >= 1e6)  return (n / 1e6).toFixed(2) + 'M';
-  if (n >= 1e3)  return (n / 1e3).toFixed(2) + 'K';
+  if (n >= 1e9) return (n / 1e9).toFixed(2) + 'B';
+  if (n >= 1e6) return (n / 1e6).toFixed(2) + 'M';
+  if (n >= 1e3) return (n / 1e3).toFixed(2) + 'K';
   return n?.toFixed(2) || '0';
 }
 function truncate(str, n) {
@@ -1244,22 +1117,22 @@ function updateLastUpdated() {
   if (el) el.textContent = `Updated ${new Date().toLocaleTimeString()}`;
 }
 
-// ── Mini SVG sparkline helper ──────────────────────────────────
+// ── SVG sparkline ──────────────────────────────────────────────
 function svgSparkline(container, values, color, fillOpacity = 0.15) {
   if (!container || !values?.length) return;
-  const W = container.offsetWidth || 120;
-  const H = container.offsetHeight || 68;
+  const W        = container.offsetWidth || 120;
+  const H        = container.offsetHeight || 68;
   const filtered = values.filter(v => v != null && isFinite(v));
   if (filtered.length < 2) return;
-  const min = Math.min(...filtered);
-  const max = Math.max(...filtered);
+  const min   = Math.min(...filtered);
+  const max   = Math.max(...filtered);
   const range = max - min || 1;
-  const pts = filtered.map((v, i) => {
+  const pts   = filtered.map((v, i) => {
     const x = (i / (filtered.length - 1)) * W;
     const y = H - ((v - min) / range) * (H - 4) - 2;
     return `${x.toFixed(1)},${y.toFixed(1)}`;
   });
-  const poly = pts.join(' ');
+  const poly     = pts.join(' ');
   const fillPath = `M${pts[0]} L${pts.join(' L')} L${W},${H} L0,${H} Z`;
   container.innerHTML = `
     <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="display:block">
@@ -1275,18 +1148,17 @@ function svgSparkline(container, values, color, fillOpacity = 0.15) {
     </svg>`;
 }
 
-// ── RSI sparkline in sub-panel ─────────────────────────────────
+// ── RSI sub-panel ──────────────────────────────────────────────
 function renderRSIPanel(container, rsiValues) {
   if (!container) return;
   const vals = rsiValues.filter(v => v != null);
   const last = vals[vals.length - 1];
   const col  = last > 70 ? '#ff4444' : last < 30 ? '#00e676' : '#a78bfa';
-  // Zone lines at 70 and 30
-  const W = container.offsetWidth || 200;
-  const H = 90;
-  const toY = v => H - ((v - 0) / 100) * (H - 6) - 3;
+  const W    = container.offsetWidth || 200;
+  const H    = 90;
+  const toY  = v => H - ((v - 0) / 100) * (H - 6) - 3;
   const recent = vals.slice(-100);
-  const pts = recent.map((v, i) => `${((i / (recent.length - 1)) * W).toFixed(1)},${toY(v).toFixed(1)}`).join(' ');
+  const pts  = recent.map((v, i) => `${((i / (recent.length - 1)) * W).toFixed(1)},${toY(v).toFixed(1)}`).join(' ');
   container.innerHTML = `
     <svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="display:block">
       <line x1="0" y1="${toY(70)}" x2="${W}" y2="${toY(70)}" stroke="rgba(255,68,68,0.25)" stroke-width="1" stroke-dasharray="3,3"/>
@@ -1297,31 +1169,30 @@ function renderRSIPanel(container, rsiValues) {
     </svg>`;
 }
 
-// ── MACD histogram in sub-panel ────────────────────────────────
+// ── MACD sub-panel ─────────────────────────────────────────────
 function renderMACDPanel(container, macdData) {
   if (!container || !macdData) return;
   const { macdLine, signalLine, histogram } = macdData;
-  const recent = histogram.slice(-80);
-  const W = container.offsetWidth || 200;
-  const H = 90;
-  const max = Math.max(...recent.map(Math.abs)) || 1;
-  const midY = H / 2;
-  const barW = (W / recent.length) - 0.5;
-  const bars = recent.map((v, i) => {
-    const h = Math.abs(v) / max * (midY - 4);
-    const y = v >= 0 ? midY - h : midY;
+  const recent   = histogram.slice(-80);
+  const W        = container.offsetWidth || 200;
+  const H        = 90;
+  const max      = Math.max(...recent.map(Math.abs)) || 1;
+  const midY     = H / 2;
+  const barW     = (W / recent.length) - 0.5;
+  const bars     = recent.map((v, i) => {
+    const h   = Math.abs(v) / max * (midY - 4);
+    const y   = v >= 0 ? midY - h : midY;
     const col = v >= 0 ? 'rgba(0,230,118,0.7)' : 'rgba(255,68,68,0.7)';
     return `<rect x="${(i * W / recent.length).toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}" fill="${col}"/>`;
   }).join('');
-  // MACD and signal lines
   const lineRecent = macdLine.slice(-80);
   const sigRecent  = signalLine.slice(-80);
-  const lineMin = Math.min(...lineRecent, ...sigRecent);
-  const lineMax = Math.max(...lineRecent, ...sigRecent);
-  const lineRange = lineMax - lineMin || 1;
-  const toY = v => H - ((v - lineMin) / lineRange) * (H - 8) - 4;
-  const macdPts = lineRecent.map((v,i) => `${(i*W/lineRecent.length).toFixed(1)},${toY(v).toFixed(1)}`).join(' ');
-  const sigPts  = sigRecent.map((v,i) =>  `${(i*W/sigRecent.length).toFixed(1)},${toY(v).toFixed(1)}`).join(' ');
+  const lineMin    = Math.min(...lineRecent, ...sigRecent);
+  const lineMax    = Math.max(...lineRecent, ...sigRecent);
+  const lineRange  = lineMax - lineMin || 1;
+  const toY        = v => H - ((v - lineMin) / lineRange) * (H - 8) - 4;
+  const macdPts    = lineRecent.map((v, i) => `${(i * W / lineRecent.length).toFixed(1)},${toY(v).toFixed(1)}`).join(' ');
+  const sigPts     = sigRecent.map((v, i)  => `${(i * W / sigRecent.length).toFixed(1)},${toY(v).toFixed(1)}`).join(' ');
   container.innerHTML = `
     <svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="display:block">
       ${bars}
@@ -1329,65 +1200,6 @@ function renderMACDPanel(container, macdData) {
       <polyline points="${macdPts}" fill="none" stroke="#40c4ff" stroke-width="1.2"/>
       <polyline points="${sigPts}"  fill="none" stroke="#ff7c7c" stroke-width="1"/>
     </svg>`;
-}
-
-// ── Mini Analytics (funding / OI / liquidation) ────────────────
-function renderMiniCharts(data, analysis) {
-  // RSI sub-panel
-  const rsiEl  = dom.rsiContainer();
-  const macdEl = dom.macdContainer();
-  if (rsiEl)  renderRSIPanel(rsiEl, analysis.rsi);
-  if (macdEl) renderMACDPanel(macdEl, analysis.macd);
-
-  // Funding history mini
-  const fundEl = dom.fundingMini();
-  if (fundEl && data.fundingHist?.length) {
-    svgSparkline(fundEl, data.fundingHist.map(h => h.rate), '#ffd54f', 0.2);
-  }
-
-  // OI history mini
-  const oiEl = dom.oiMini();
-  if (oiEl && data.oiHistory?.length) {
-    const rising = data.oiHistory.slice(-1)[0]?.oi > data.oiHistory[0]?.oi;
-    svgSparkline(oiEl, data.oiHistory.map(o => o.oi), rising ? '#00e676' : '#ff4444', 0.15);
-  }
-
-  // Liquidation levels mini bar chart
-  const liqEl = dom.liqContainer();
-  if (liqEl && analysis.liqLevels) {
-    const liq = analysis.liqLevels;
-    const price = analysis.price;
-    const items = [
-      ...liq.shortLiqs.slice(0, 3).map(l => ({ label: l.label, price: l.price, side: 'short' })),
-      ...liq.longLiqs.slice(0, 3).map(l => ({ label: l.label, price: l.price, side: 'long' })),
-    ].sort((a, b) => b.price - a.price);
-    liqEl.innerHTML = `<div style="padding:4px 8px;display:flex;flex-direction:column;gap:2px;height:100%">
-      ${items.map(l => {
-        const pct = ((l.price - price) / price * 100).toFixed(1);
-        const col = l.side === 'short' ? '#ff4444' : '#00e676';
-        return `<div style="display:flex;align-items:center;gap:4px;flex:1">
-          <span style="font-size:7px;color:${col};width:28px;flex-shrink:0">${l.label}</span>
-          <div style="flex:1;height:2px;background:rgba(255,255,255,0.06);border-radius:1px">
-            <div style="width:${Math.min(Math.abs(parseFloat(pct))*8,100)}%;height:100%;background:${col};border-radius:1px"></div>
-          </div>
-          <span style="font-size:7px;color:#5a6470;width:36px;text-align:right">${pct}%</span>
-        </div>`;
-      }).join('')}
-    </div>`;
-  }
-}
-
-// ── Tab switching ──────────────────────────────────────────────
-function initTabs() {
-  document.querySelectorAll('.intel-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      document.querySelectorAll('.intel-tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.intel-pane').forEach(p => p.classList.remove('active'));
-      tab.classList.add('active');
-      const pane = document.getElementById(`tab-${tab.dataset.tab}`);
-      if (pane) pane.classList.add('active');
-    });
-  });
 }
 
 // ── Boot ───────────────────────────────────────────────────────
@@ -1402,13 +1214,11 @@ function boot() {
 
   initTabs();
 
-  // ANALYSE button (#analysisBtn) + Enter key on #tickerInput
   const input = dom.searchInput();
   const btn   = dom.searchBtn();
   if (btn)   btn.addEventListener('click', () => analyze(input?.value || ''));
   if (input) input.addEventListener('keydown', e => { if (e.key === 'Enter') analyze(input.value); });
 
-  // Ticker quick-select pills (.tf-pill[data-ticker])
   document.querySelectorAll('.tf-pill[data-ticker]').forEach(b => {
     b.addEventListener('click', () => {
       document.querySelectorAll('.tf-pill').forEach(x => x.classList.remove('active'));
@@ -1419,7 +1229,6 @@ function boot() {
     });
   });
 
-  // TF <select> (#tfSelect)
   const tfSel = dom.tfSelect();
   if (tfSel) {
     tfSel.addEventListener('change', () => {
@@ -1428,9 +1237,8 @@ function boot() {
     });
   }
 
-  // Auto-refresh toggle (#autoRefreshBtn)
   let autoTimer = null;
-  const autoBtn = dom.autoRefreshBtn();
+  const autoBtn     = dom.autoRefreshBtn();
   const intervalSel = dom.refreshIntervalSel();
   if (autoBtn) {
     autoBtn.addEventListener('click', () => {
@@ -1452,20 +1260,17 @@ function boot() {
     });
   }
 
-  // Rail refresh icon (#rail-refresh)
   dom.refreshBtn()?.addEventListener('click', () => {
     const sym = currentSymbol || input?.value || '';
     if (sym) analyze(sym);
     else showError('Enter a symbol first');
   });
 
-  // Drawer close (optional — only if drawer elements exist)
   dom.drawerClose()?.addEventListener('click', closeDrawer);
   dom.drawerPanel()?.addEventListener('click', e => {
     if (e.target === dom.drawerPanel()) closeDrawer();
   });
 
-  // Mobile bottom rail
   document.getElementById('mbr-analysis')?.addEventListener('click', () => {
     document.getElementById('stage-analysis')?.scrollIntoView({ behavior: 'smooth' });
   });
@@ -1483,16 +1288,14 @@ function boot() {
   tickClock();
   setInterval(tickClock, 1000);
 
-  // Status dot pulse — goes LIVE on first successful analysis
+  // Status dot
   function setStatus(state) {
     const dot  = document.getElementById('global-status-dot');
     const text = document.getElementById('global-status-text');
-    if (dot)  dot.className  = `status-dot ${state === 'live' ? 'online' : state === 'loading' ? 'scanning' : ''}`;
+    if (dot)  dot.className   = `status-dot ${state === 'live' ? 'online' : state === 'loading' ? 'scanning' : ''}`;
     if (text) text.textContent = state === 'live' ? 'LIVE' : state === 'loading' ? 'SCANNING' : 'READY';
   }
   window.__atlSetStatus = setStatus;
-
-  // Expose for console debugging
   window.__atl = { analyze };
 }
 
