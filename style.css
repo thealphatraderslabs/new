@@ -377,11 +377,12 @@ body {
   font-size: 8px; font-weight: 500; letter-spacing: 0.06em;
   font-family: var(--font-mono);
 }
-.tag.bull    { background: var(--green-dim); color: var(--green); }
-.tag.bear    { background: var(--red-dim);   color: var(--red); }
-.tag.neutral { background: var(--gold-dim);  color: var(--gold); }
-.tag.bos     { background: var(--blue-dim);  color: var(--blue); }
-.tag.choch   { background: rgba(255,144,64,0.12); color: #ff9040; }
+.tag.bull, .tag-bull    { background: var(--green-dim); color: var(--green); }
+.tag.bear, .tag-bear    { background: var(--red-dim);   color: var(--red); }
+.tag.neutral            { background: var(--gold-dim);  color: var(--gold); }
+.tag.bos, .tag-bos      { background: var(--blue-dim);  color: var(--blue); }
+.tag.choch, .tag-warn   { background: rgba(255,144,64,0.12); color: #ff9040; }
+.tag-info               { background: var(--bg4); color: var(--sub); }
 
 /* ════════════════════════════════════════════════
    LEFT PANEL — DERIVATIVES
@@ -427,11 +428,14 @@ body {
 }
 .oi-spark-bars {
   display: flex; gap: 1px;
-  align-items: flex-end; height: 36px; width: 100%;
+  align-items: flex-end;
+  height: 36px; width: 100%;
+  overflow: hidden;
 }
-.oi-spark-bar { flex: 1; min-height: 3px; background: var(--green-dim); }
-.oi-spark-bar.up   { background: rgba(0,230,118,0.7); }
-.oi-spark-bar.down { background: rgba(255,68,68,0.6); }
+.oi-spark-bars > div {
+  flex: 1; min-width: 0; min-height: 2px;
+  border-radius: 1px 1px 0 0;
+}
 
 /* Liq clusters */
 .liq-mini { padding: 5px 12px 8px; }
@@ -482,7 +486,7 @@ body {
   text-transform: uppercase; letter-spacing: 0.1em;
   z-index: 2; pointer-events: none;
 }
-#rsi-container, #macd-container { height: 80px; width: 100%; }
+#rsi-container, #macd-container { height: 90px; width: 100%; }
 
 /* Structure grid */
 .struct-grid {
@@ -500,6 +504,18 @@ body {
 
 /* OB container */
 #ob-container { padding: 5px 12px; border-bottom: 1px solid var(--border); }
+.ob-card {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.04);
+  font-size: 10px;
+}
+.ob-card:last-child { border-bottom: none; }
+.ob-card-bull .tag { background: var(--green-dim); color: var(--green); }
+.ob-card-bear .tag { background: var(--red-dim);   color: var(--red); }
+.ob-range { flex: 1; color: var(--sub); font-family: var(--font-mono); font-size: 9px; }
+.ob-struct { font-size: 8px; color: var(--muted); letter-spacing: 0.06em; }
+
+/* OB item (legacy) */
 .ob-item {
   display: flex; align-items: center; gap: 8px;
   padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.04);
@@ -507,7 +523,6 @@ body {
 }
 .ob-item:last-child { border-bottom: none; }
 .ob-type  { font-size: 8px; width: 56px; font-weight: 600; flex-shrink: 0; }
-.ob-range { flex: 1; color: var(--sub); font-family: var(--font-mono); font-size: 9px; }
 .ob-state { font-size: 8px; letter-spacing: 0.08em; }
 .ob-state.fresh     { color: var(--green); }
 .ob-state.tested    { color: var(--gold); }
@@ -515,29 +530,37 @@ body {
 
 /* FVG list */
 .fvg-list { padding: 5px 12px; border-bottom: 1px solid var(--border); }
-.fvg-item {
+.fvg-row {
   display: flex; align-items: center; gap: 6px;
-  padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,0.04);
+  padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.04);
 }
-.fvg-item:last-child { border-bottom: none; }
-.fvg-tag    { font-size: 8px; font-weight: 500; width: 32px; }
-.fvg-range  { font-size: 9px; color: var(--sub); flex: 1; font-family: var(--font-mono); }
-.fvg-size   { font-size: 8px; color: var(--muted); }
+.fvg-row:last-child { border-bottom: none; }
+.fvg-bull .tag { background: var(--green-dim); color: var(--green); }
+.fvg-bear .tag { background: var(--red-dim);   color: var(--red); }
+.fvg-range { font-size: 9px; color: var(--sub); flex: 1; font-family: var(--font-mono); }
+.fvg-size  { font-size: 8px; color: var(--muted); }
 
 /* S/R levels */
 .levels-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 1px; background: var(--border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1px;
+  background: var(--border);
   border-bottom: 1px solid var(--border);
+  padding: 6px 10px;
 }
-.level-cell { background: var(--bg2); padding: 6px 10px; }
-.level-cell-label {
-  font-size: 7px; color: var(--muted);
-  text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1px;
+.sr-chip {
+  display: flex; flex-direction: column;
+  padding: 5px 8px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  min-width: 80px; flex: 1;
+  gap: 1px;
 }
-.level-cell-price { font-size: 10px; font-weight: 500; }
-.level-cell-note  { font-size: 8px; color: var(--muted); }
+.sr-chip > span:nth-child(1) { font-size: 7px; letter-spacing: 0.1em; text-transform: uppercase; }
+.sr-chip > span:nth-child(2) { font-size: 10px; font-weight: 600; font-family: var(--font-mono); color: var(--text); }
+.sr-chip > span:nth-child(3) { font-size: 8px; color: var(--muted); }
 
 /* Mini charts row */
 #mini-chart-row {
@@ -555,7 +578,7 @@ body {
   font-size: 7px; color: var(--muted);
   text-transform: uppercase; letter-spacing: 0.1em;
 }
-#funding-mini, #oi-mini, #liq-mini { height: 52px; width: 100%; }
+#funding-mini, #oi-mini, #liq-mini { height: 68px; width: 100%; }
 
 /* ════════════════════════════════════════════════
    RIGHT PANEL — TRADE SETUP
