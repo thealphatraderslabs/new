@@ -33,7 +33,6 @@ function scoreMarketStructure(analysis) {
     reasons.push(`Caution: HTF ${htfTrend} vs MTF ${mtfTrend} — structure conflict, counter-trend move possible`);
   }
 
-  // Recent CHoCH = early reversal signal
   const recentEvents = structure.events?.slice(-3) || [];
   const lastEvent    = recentEvents[recentEvents.length - 1];
   if (lastEvent?.type === 'CHoCH') {
@@ -49,22 +48,19 @@ function scoreOrderBlocks(analysis) {
 
   if (!orderBlocks.length) return { score: 0, reasons: ['No valid order blocks detected'], nearestOB };
 
-  const freshOBs = orderBlocks.filter(ob => ob.state === 'fresh');
+  const freshOBs  = orderBlocks.filter(ob => ob.state === 'fresh');
   const demandOBs = freshOBs.filter(ob => ob.type === 'demand').sort((a, b) => b.low - a.low);
   const supplyOBs = freshOBs.filter(ob => ob.type === 'supply').sort((a, b) => a.high - b.high);
 
-  // Check if price is near a fresh OB
   for (const ob of demandOBs) {
     const distPct = (price - ob.high) / price * 100;
     if (distPct >= 0 && distPct < 3) {
-      score += 2;
-      nearestOB = ob;
+      score += 2; nearestOB = ob;
       reasons.push(`Price is ${distPct.toFixed(1)}% above fresh demand OB at $${ob.low.toFixed(2)}–$${ob.high.toFixed(2)} (${ob.structureType} structure origin)`);
       break;
     }
     if (distPct < 0 && distPct > -1) {
-      score += 1;
-      nearestOB = ob;
+      score += 1; nearestOB = ob;
       reasons.push(`Price testing demand OB at $${ob.low.toFixed(2)}–$${ob.high.toFixed(2)} — key reversal zone`);
       break;
     }
@@ -73,14 +69,12 @@ function scoreOrderBlocks(analysis) {
   for (const ob of supplyOBs) {
     const distPct = (ob.low - price) / price * 100;
     if (distPct >= 0 && distPct < 3) {
-      score -= 2;
-      nearestOB = ob;
+      score -= 2; nearestOB = ob;
       reasons.push(`Price approaching fresh supply OB at $${ob.low.toFixed(2)}–$${ob.high.toFixed(2)} — expect rejection`);
       break;
     }
     if (distPct < 0 && distPct > -1) {
-      score -= 1;
-      nearestOB = ob;
+      score -= 1; nearestOB = ob;
       reasons.push(`Price inside supply OB at $${ob.low.toFixed(2)}–$${ob.high.toFixed(2)} — bearish pressure zone`);
       break;
     }
@@ -167,7 +161,6 @@ function scoreRSI(analysis) {
     reasons.push(`RSI neutral at ${lastRSI.toFixed(1)} — no directional edge from momentum alone`);
   }
 
-  // Divergence
   const recentDiv = divs.slice(-1)[0];
   if (recentDiv) {
     if (recentDiv.type === 'bullish') {
@@ -220,9 +213,9 @@ function scoreEMAStack(analysis) {
   const { ema20, ema50, ema200 } = lastEMAs;
   if (!ema20 || !ema200) return { score: 0, reasons: ['EMA data insufficient'] };
 
-  const above200 = price > ema200;
-  const above50  = price > ema50;
-  const above20  = price > ema20;
+  const above200  = price > ema200;
+  const above50   = price > ema50;
+  const above20   = price > ema20;
   const stackBull = ema20 > ema50 && ema50 > ema200;
   const stackBear = ema20 < ema50 && ema50 < ema200;
 
@@ -250,7 +243,6 @@ function scoreDerivatives(data, analysis) {
   const { ticker, oiHistory, fundingHist, takerFlow } = data;
   let score = 0, reasons = [];
 
-  // Funding rate
   const fr = ticker?.fundingRate;
   if (fr !== null && fr !== undefined) {
     if (fr < -0.05) {
@@ -270,11 +262,9 @@ function scoreDerivatives(data, analysis) {
     }
   }
 
-  // OI trend
   if (oiHistory.length >= 4) {
-    const recentOI = oiHistory.slice(-4);
-    const oiChange = (recentOI[3].oi - recentOI[0].oi) / recentOI[0].oi * 100;
-    const { price } = analysis;
+    const recentOI  = oiHistory.slice(-4);
+    const oiChange  = (recentOI[3].oi - recentOI[0].oi) / recentOI[0].oi * 100;
     const priceChange = analysis.candles.length >= 4
       ? (analysis.candles[analysis.candles.length - 1].close - analysis.candles[analysis.candles.length - 4].close) / analysis.candles[analysis.candles.length - 4].close * 100
       : 0;
@@ -294,7 +284,6 @@ function scoreDerivatives(data, analysis) {
     }
   }
 
-  // Taker flow
   if (takerFlow) {
     const { takerBias } = takerFlow;
     if (takerBias > 15) {
@@ -339,18 +328,17 @@ function scoreOrderBook(analysis) {
 // ═══════════════════════════════════════════════
 function generateSignal(data, analysis) {
   const scores = {
-    structure:     scoreMarketStructure(analysis),
-    orderBlocks:   scoreOrderBlocks(analysis),
-    fvg:           scoreFVGs(analysis),
-    premDisc:      scorePremiumDiscount(analysis),
-    rsi:           scoreRSI(analysis),
-    macd:          scoreMACD(analysis),
-    emas:          scoreEMAStack(analysis),
-    derivatives:   scoreDerivatives(data, analysis),
-    orderBook:     scoreOrderBook(analysis),
+    structure:   scoreMarketStructure(analysis),
+    orderBlocks: scoreOrderBlocks(analysis),
+    fvg:         scoreFVGs(analysis),
+    premDisc:    scorePremiumDiscount(analysis),
+    rsi:         scoreRSI(analysis),
+    macd:        scoreMACD(analysis),
+    emas:        scoreEMAStack(analysis),
+    derivatives: scoreDerivatives(data, analysis),
+    orderBook:   scoreOrderBook(analysis),
   };
 
-  // Weighted total
   const weights = {
     structure: 2, orderBlocks: 2, fvg: 1, premDisc: 1.5,
     rsi: 1.5, macd: 1, emas: 1.5, derivatives: 2, orderBook: 1,
@@ -362,15 +350,13 @@ function generateSignal(data, analysis) {
   }
   const normalizedScore = Math.round((totalScore / maxScore) * 100);
 
-  // Bias classification
   let bias, biasLabel, biasColor;
-  if (normalizedScore >= 40)       { bias = 'LONG';      biasLabel = '⬆ LONG BIAS';       biasColor = '#00e676'; }
-  else if (normalizedScore >= 15)  { bias = 'LEAN_LONG'; biasLabel = '↗ LEAN LONG';       biasColor = '#69f0ae'; }
-  else if (normalizedScore <= -40) { bias = 'SHORT';     biasLabel = '⬇ SHORT BIAS';      biasColor = '#ff4444'; }
-  else if (normalizedScore <= -15) { bias = 'LEAN_SHORT';biasLabel = '↘ LEAN SHORT';      biasColor = '#ff7070'; }
-  else                              { bias = 'NEUTRAL';   biasLabel = '↔ NEUTRAL / WAIT';  biasColor = '#ffd54f'; }
+  if (normalizedScore >= 40)       { bias = 'LONG';       biasLabel = '⬆ LONG';       biasColor = '#00e676'; }
+  else if (normalizedScore >= 15)  { bias = 'LEAN_LONG';  biasLabel = '↗ LEAN LONG';  biasColor = '#69f0ae'; }
+  else if (normalizedScore <= -40) { bias = 'SHORT';      biasLabel = '⬇ SHORT';      biasColor = '#ff4444'; }
+  else if (normalizedScore <= -15) { bias = 'LEAN_SHORT'; biasLabel = '↘ LEAN SHORT'; biasColor = '#ff7070'; }
+  else                             { bias = 'NEUTRAL';    biasLabel = '↔ NEUTRAL';    biasColor = '#ffd54f'; }
 
-  // Generate trade setup
   const setup = generateSetup(analysis, data, bias, scores);
 
   return { scores, normalizedScore, bias, biasLabel, biasColor, setup };
@@ -396,7 +382,6 @@ function generateSetup(analysis, data, bias, scores) {
     entry = price;
     entryReason = `Enter long at market ($${price.toFixed(2)}) or on retest of nearest demand zone`;
 
-    // SL: below nearest demand OB or 1.5×ATR
     if (freshDemand.length > 0) {
       sl = freshDemand[0].low - lastATR * 0.3;
       slReason = `Stop below demand OB at $${freshDemand[0].low.toFixed(2)} — invalidation if price closes below this zone`;
@@ -410,13 +395,11 @@ function generateSetup(analysis, data, bias, scores) {
     tp2 = price + risk * 2.5;
     tp3 = price + risk * 4.0;
 
-    // Override TPs with structure levels if available
     const resistanceLevels = srLevels.filter(s => s.type === 'resistance' && s.price > price).sort((a, b) => a.price - b.price);
     if (resistanceLevels.length > 0) tp1 = resistanceLevels[0].price;
     if (resistanceLevels.length > 1) tp2 = resistanceLevels[1].price;
     if (freshSupply.length > 0 && freshSupply[0].low > price) tp2 = freshSupply[0].low;
 
-    // TP3 near liquidity cluster above
     const liquidity = liqLevels.shortLiqs.filter(l => l.price > price);
     if (liquidity.length > 0 && liquidity[0].price > tp2) tp3 = liquidity[0].price;
 
@@ -454,19 +437,17 @@ function generateSetup(analysis, data, bias, scores) {
     tp3Reason = `TP3 at $${tp3.toFixed(2)} (4R) — liquidity cluster / extended target`;
   }
 
-  const risk   = Math.abs(price - sl);
-  const rr1    = risk > 0 ? Math.abs(tp1 - price) / risk : 0;
-  const rr2    = risk > 0 ? Math.abs(tp2 - price) / risk : 0;
-  const rr3    = risk > 0 ? Math.abs(tp3 - price) / risk : 0;
+  const risk    = Math.abs(price - sl);
+  const rr1     = risk > 0 ? Math.abs(tp1 - price) / risk : 0;
+  const rr2     = risk > 0 ? Math.abs(tp2 - price) / risk : 0;
+  const rr3     = risk > 0 ? Math.abs(tp3 - price) / risk : 0;
   const riskPct = (risk / price * 100).toFixed(2);
 
-  // Invalidation
-  const invalidationPrice = sl;
+  const invalidationPrice  = sl;
   const invalidationReason = isLong
     ? `Setup invalidated if candle closes below $${sl.toFixed(2)} — indicates demand zone failure and bearish structure shift`
     : `Setup invalidated if candle closes above $${sl.toFixed(2)} — indicates supply zone failure and bullish structure shift`;
 
-  // Scenario narratives
   const bullScenario = generateNarrative(analysis, data, 'bull');
   const bearScenario = generateNarrative(analysis, data, 'bear');
 
@@ -482,30 +463,145 @@ function generateSetup(analysis, data, bias, scores) {
 }
 
 function generateNarrative(analysis, data, direction) {
-  const { price, structure, premDisc, lastRSI, lastEMAs } = analysis;
+  const { price, structure, premDisc, lastRSI, lastEMAs, orderBlocks } = analysis;
   const { ticker, fundingHist } = data;
 
-  const fr = ticker?.fundingRate || 0;
-  const zone = premDisc?.zone || 'equilibrium';
-  const trend = structure?.trend || 'neutral';
+  const fr      = ticker?.fundingRate || 0;
+  const zone    = premDisc?.zone || 'equilibrium';
+  const trend   = structure?.trend || 'neutral';
+  const freshDemand = orderBlocks?.filter(ob => ob.type === 'demand' && ob.state === 'fresh') || [];
+  const freshSupply = orderBlocks?.filter(ob => ob.type === 'supply' && ob.state === 'fresh') || [];
+  const nearestDemand = freshDemand.sort((a, b) => b.low - a.low)[0];
+  const nearestSupply = freshSupply.sort((a, b) => a.low - b.low)[0];
 
   if (direction === 'bull') {
+    const obRef  = nearestDemand ? `Nearest demand OB at $${nearestDemand.low.toFixed(2)}–$${nearestDemand.high.toFixed(2)} is the key support.` : 'No fresh demand OBs nearby.';
+    const obTrig = nearestSupply ? `A close above the $${nearestSupply.low.toFixed(2)} supply OB would confirm new bullish momentum.` : 'A clear BOS to the upside would confirm continuation.';
     return [
       `Price is currently trading in the ${zone} zone of its recent range.`,
       `If bullish market structure holds (trend: ${trend}), expect a continuation move toward the premium zone.`,
-      `Key catalyst: a close above the nearest supply OB would confirm new bullish momentum.`,
-      `Funding at ${fr.toFixed(3)}% ${fr < 0 ? 'incentivizes longs via negative rate' : 'suggests longs are paying — watch for overheating'}.`,
+      obTrig,
+      `${obRef}`,
+      `Funding at ${fr.toFixed(4)}% ${fr < 0 ? '— shorts paying longs, supportive for bulls' : fr > 0.05 ? '— longs paying, watch for overheating' : '— neutral, no squeeze pressure'}.`,
       `RSI at ${lastRSI?.toFixed(1) || 'N/A'} ${(lastRSI || 50) < 50 ? 'has room to recover to 70 before becoming extended' : 'is elevated — monitor for divergence'}.`,
     ].join(' ');
   } else {
+    const obRef  = nearestSupply ? `Nearest supply OB at $${nearestSupply.low.toFixed(2)}–$${nearestSupply.high.toFixed(2)} is the key resistance.` : 'No fresh supply OBs nearby.';
+    const obTrig = nearestDemand ? `A close below the $${nearestDemand.high.toFixed(2)} demand OB would confirm bearish breakdown.` : 'A CHoCH to the downside would confirm the bearish case.';
     return [
       `Price is currently in the ${zone} zone — ${zone === 'premium' ? 'historically unfavorable for longs' : 'potential distribution area'}.`,
       `If bearish market structure holds (trend: ${trend}), expect a pullback toward discount / demand zones.`,
-      `Key catalyst: a close below the nearest demand OB would confirm bearish breakdown.`,
-      `Funding at ${fr.toFixed(3)}% — ${fr > 0.05 ? 'elevated funding increases long liquidation risk' : 'neutral, no immediate squeeze catalyst'}.`,
-      `EMA 200 at $${lastEMAs.ema200?.toFixed(2) || 'N/A'} is the ultimate support — a reclaim would neutralize the bearish case.`,
+      obTrig,
+      `${obRef}`,
+      `Funding at ${fr.toFixed(4)}% — ${fr > 0.05 ? 'elevated, increasing long liquidation risk' : 'neutral, no immediate squeeze catalyst'}.`,
+      `EMA 200 at $${lastEMAs?.ema200?.toFixed(2) || 'N/A'} is the ultimate support — a reclaim would neutralize the bearish case.`,
     ].join(' ');
   }
 }
 
-export { generateSignal, scoreMarketStructure, scoreOrderBlocks };
+// ═══════════════════════════════════════════════
+//  MTF BIAS TABLE GENERATOR
+//  NEW: produces the 5-row timeframe bias table
+//  that renders in the centre panel below structure grid.
+//
+//  Returns array of { tf, trend, structure, keyLevel, distPct }
+//  so app.js can render it cleanly.
+// ═══════════════════════════════════════════════
+function generateMTFBias(analysis, rawData) {
+  const { structure, htfStructure, ltfStructure, price, pivotHighs, pivotLows, srLevels } = analysis;
+
+  // Helper: get the nearest S/R level for a given trend
+  function nearestLevel(trend) {
+    if (!srLevels?.length) return null;
+    const candidates = trend === 'bull'
+      ? srLevels.filter(l => l.type === 'resistance' && l.price > price).sort((a, b) => a.price - b.price)
+      : srLevels.filter(l => l.type === 'support'    && l.price < price).sort((a, b) => b.price - a.price);
+    return candidates[0] || null;
+  }
+
+  // Helper: get last structure event tag for a structure object
+  function lastEventTag(st) {
+    if (!st?.events?.length) return '—';
+    const ev = st.events[st.events.length - 1];
+    if (ev.type === 'BOS')   return ev.dir === 'bull' ? 'HH BOS' : 'LL BOS';
+    if (ev.type === 'CHoCH') return 'CHoCH';
+    return ev.type;
+  }
+
+  // Helper: dist % from price to a level
+  function dist(lvl) {
+    if (!lvl) return null;
+    return ((lvl.price - price) / price * 100);
+  }
+
+  // LTF (15m) — use ltfStructure if available, else approximate from structure events
+  const ltfTrend   = ltfStructure?.trend || analysis.kltfStructure?.trend || '—';
+  const ltfEvt     = lastEventTag(ltfStructure || analysis.kltfStructure);
+  const ltfLevel   = nearestLevel(ltfTrend);
+
+  // MTF (primary TF) — analysis.structure
+  const mtfTrend   = structure?.trend || '—';
+  const mtfEvt     = lastEventTag(structure);
+  const mtfLevel   = nearestLevel(mtfTrend);
+
+  // HTF (4H)
+  const htfTrend4h = htfStructure?.trend || '—';
+  const htfEvt4h   = lastEventTag(htfStructure);
+  const htfLevel4h = nearestLevel(htfTrend4h);
+
+  // 1D — use swingHigh/Low pivots as proxy for daily level
+  const pivH       = pivotHighs?.slice(-1)[0];
+  const pivL       = pivotLows?.slice(-1)[0];
+  const dailyLevel = pivH && pivL
+    ? (Math.abs(pivH.price - price) < Math.abs(pivL.price - price) ? { price: pivH.price } : { price: pivL.price })
+    : mtfLevel;
+  // For daily trend, use HTF as proxy if no separate daily structure
+  const dailyTrend = htfStructure?.trend || '—';
+
+  // 1W — use the furthest pivot
+  const weeklyLevel = pivH ? { price: pivH.price } : null;
+  const weeklyTrend = htfStructure?.trend || '—';
+
+  const rows = [
+    {
+      tf:        '15M',
+      trend:     ltfTrend,
+      structure: ltfEvt,
+      keyLevel:  ltfLevel,
+      distPct:   dist(ltfLevel),
+    },
+    {
+      tf:        '1H',
+      trend:     mtfTrend,
+      structure: mtfEvt,
+      keyLevel:  mtfLevel,
+      distPct:   dist(mtfLevel),
+    },
+    {
+      tf:        '4H',
+      trend:     htfTrend4h,
+      structure: htfEvt4h,
+      keyLevel:  htfLevel4h,
+      distPct:   dist(htfLevel4h),
+    },
+    {
+      tf:        '1D',
+      trend:     dailyTrend,
+      structure: '—',
+      keyLevel:  dailyLevel,
+      distPct:   dist(dailyLevel),
+    },
+    {
+      tf:        '1W',
+      trend:     weeklyTrend,
+      structure: '—',
+      keyLevel:  weeklyLevel,
+      distPct:   dist(weeklyLevel),
+      isActive:  true,   // mark current TF
+    },
+  ];
+
+  return rows;
+}
+
+export { generateSignal, generateMTFBias, scoreMarketStructure, scoreOrderBlocks };
