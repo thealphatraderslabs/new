@@ -21,44 +21,54 @@ let analysis      = null;
 let signal        = null;
 
 // ── DOM Refs ───────────────────────────────────────────────────
+// IDs matched to index.html actual element IDs
 const dom = {
-  searchInput:    () => document.getElementById('search-input'),
-  searchBtn:      () => document.getElementById('search-btn'),
-  tfButtons:      () => document.querySelectorAll('[data-tf]'),
+  // Command bar
+  searchInput:    () => document.getElementById('tickerInput'),
+  searchBtn:      () => document.getElementById('analysisBtn'),
+  tfButtons:      () => document.querySelectorAll('.tf-pill[data-ticker]'),
+  tfSelect:       () => document.getElementById('tfSelect'),
+  autoRefreshBtn: () => document.getElementById('autoRefreshBtn'),
+  refreshIntervalSel: () => document.getElementById('refreshIntervalSel'),
+  // Overlay / error
   loadingOverlay: () => document.getElementById('loading-overlay'),
-  loadingMsg:     () => document.getElementById('loading-msg'),
+  loadingMsg:     () => document.getElementById('loading-sub-text'),
   errorBanner:    () => document.getElementById('error-banner'),
   errorText:      () => document.getElementById('error-text'),
-  symbolDisplay:  () => document.getElementById('symbol-display'),
-  priceDisplay:   () => document.getElementById('price-display'),
-  change24h:      () => document.getElementById('change-24h'),
-  biasChip:       () => document.getElementById('bias-chip'),
-  scoreRing:      () => document.getElementById('score-ring'),
-  scoreNumber:    () => document.getElementById('score-number'),
+  // Price hero
+  symbolDisplay:  () => document.getElementById('h-ticker'),
+  priceDisplay:   () => document.getElementById('h-price'),
+  change24h:      () => document.getElementById('h-change'),
+  biasChip:       () => document.getElementById('h-bias'),
+  scoreRing:      () => null,   // not present in this layout
+  scoreNumber:    () => null,   // not present in this layout
+  // Drawer (not present — no-ops safe via optional chaining)
   drawerPanel:    () => document.getElementById('drawer-panel'),
   drawerTitle:    () => document.getElementById('drawer-title'),
   drawerContent:  () => document.getElementById('drawer-content'),
   drawerClose:    () => document.getElementById('drawer-close'),
+  // Chart containers
   chartContainer: () => document.getElementById('chart-container'),
   rsiContainer:   () => document.getElementById('rsi-container'),
   macdContainer:  () => document.getElementById('macd-container'),
   volContainer:   () => document.getElementById('vol-profile-container'),
   fundingMini:    () => document.getElementById('funding-mini'),
   oiMini:         () => document.getElementById('oi-mini'),
-  liqContainer:   () => document.getElementById('liq-container'),
+  liqContainer:   () => document.getElementById('liq-mini'),
+  // Stats / refresh
   statsBar:       () => document.getElementById('stats-bar'),
-  refreshBtn:     () => document.getElementById('refresh-btn'),
+  refreshBtn:     () => document.getElementById('rail-refresh'),
   lastUpdated:    () => document.getElementById('last-updated'),
-  // Decision Bar
-  dbBias:         () => document.getElementById('db-bias-val'),
-  dbEntry:        () => document.getElementById('db-entry-val'),
-  dbSL:           () => document.getElementById('db-sl-val'),
-  dbTP:           () => document.getElementById('db-tp-val'),
-  dbStruct:       () => document.getElementById('db-struct-val'),
-  dbZone:         () => document.getElementById('db-zone-val'),
-  dbInvalid:      () => document.getElementById('db-invalid-val'),
-  dbSlotBias:     () => document.getElementById('db-slot-bias'),
-  // Tab panes
+  // Decision Bar — mapped to price hero panel elements
+  dbBias:         () => document.getElementById('ds-bias'),
+  dbEntry:        () => document.getElementById('ds-entry'),
+  dbSL:           () => document.getElementById('ds-sl'),
+  dbTP:           () => document.getElementById('ds-tp'),
+  dbStruct:       () => document.getElementById('s-htf'),
+  dbZone:         () => document.getElementById('s-zone'),
+  dbInvalid:      () => document.getElementById('ds-invalid'),
+  dbSlotBias:     () => document.getElementById('ds-bias-slot'),
+  // Tab panes — these don't exist in current HTML; populated dynamically
   tabSetup:       () => document.getElementById('tab-setup'),
   tabStructure:   () => document.getElementById('tab-structure'),
   tabLevels:      () => document.getElementById('tab-levels'),
@@ -154,21 +164,54 @@ function renderUI(symbol, data, analysis, signal) {
   const price  = ticker?.price || analysis.price;
   const chg    = ticker?.price24h || 0;
 
-  const sd = dom.symbolDisplay();
-  const pd = dom.priceDisplay();
-  const c24 = dom.change24h();
-  const bc = dom.biasChip();
+  // Price hero (#h-ticker, #h-price, #h-change)
+  const sd  = document.getElementById('h-ticker');
+  const pd  = document.getElementById('h-price');
+  const c24 = document.getElementById('h-change');
+  const bc  = document.getElementById('h-bias');
+  const bconf = document.getElementById('h-bias-conf');
+
+  // Additional hero stats
+  const hHigh    = document.getElementById('h-high');
+  const hLow     = document.getElementById('h-low');
+  const hVol     = document.getElementById('h-vol');
+  const hOI      = document.getElementById('h-oi');
+  const hFunding = document.getElementById('h-funding');
+  const hRSI     = document.getElementById('h-rsi');
+  const hMark    = document.getElementById('h-mark');
+  const hATR     = document.getElementById('h-atr');
 
   if (sd) sd.textContent = `${symbol} / USDT`;
   if (pd) pd.textContent = `$${formatPrice(price)}`;
+
+  if (hHigh)    hHigh.textContent    = ticker ? `$${formatPrice(ticker.high24h)}` : '—';
+  if (hLow)     hLow.textContent     = ticker ? `$${formatPrice(ticker.low24h)}` : '—';
+  if (hVol)     hVol.textContent     = ticker ? formatLarge(ticker.turnover24h) + ' USDT' : '—';
+  if (hOI)      hOI.textContent      = ticker?.openInterest ? formatLarge(ticker.openInterest) : '—';
+  if (hFunding) {
+    const fr = ticker?.fundingRate || 0;
+    hFunding.textContent = `${fr.toFixed(4)}%`;
+    hFunding.style.color = fr < -0.01 ? '#00e676' : fr > 0.05 ? '#ff4444' : '#ffd54f';
+  }
+  if (hRSI) {
+    const rsi = analysis.lastRSI;
+    hRSI.textContent = rsi != null ? rsi.toFixed(1) : '—';
+    hRSI.style.color = rsi > 70 ? '#ff4444' : rsi < 30 ? '#00e676' : '#8892a0';
+  }
+  if (hMark)  hMark.textContent  = ticker ? `$${formatPrice(ticker.markPrice)}` : '—';
+  if (hATR)   hATR.textContent   = analysis.lastATR ? `$${formatPrice(analysis.lastATR)}` : '—';
+
   if (c24) {
     c24.textContent = `${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%`;
-    c24.className   = `change-badge ${chg >= 0 ? 'pos' : 'neg'}`;
+    c24.className   = `ph-change ${chg >= 0 ? 'pos' : 'neg'}`;
   }
   if (bc && signal) {
-    bc.textContent       = signal.biasLabel;
-    bc.style.color       = signal.biasColor;
-    bc.style.borderColor = signal.biasColor;
+    bc.textContent  = signal.biasLabel;
+    bc.style.color  = signal.biasColor;
+    bc.className    = `ph-bias-val ${signal.biasLabel?.toLowerCase().includes('long') ? 'bull' : signal.biasLabel?.toLowerCase().includes('short') ? 'bear' : 'neutral'}`;
+  }
+  if (bconf && signal) {
+    bconf.textContent = `Score: ${signal.normalizedScore > 0 ? '+' : ''}${signal.normalizedScore} · ${signal.biasLabel}`;
   }
   renderScoreRing(signal?.normalizedScore || 0, signal?.biasColor || '#ffd54f');
 }
@@ -943,35 +986,76 @@ function boot() {
 
   initTabs();
 
-  // Search
+  // ANALYSE button (#analysisBtn) + Enter key on #tickerInput
   const input = dom.searchInput();
   const btn   = dom.searchBtn();
-  if (btn)   btn.addEventListener('click',  () => analyze(input?.value || ''));
+  if (btn)   btn.addEventListener('click', () => analyze(input?.value || ''));
   if (input) input.addEventListener('keydown', e => { if (e.key === 'Enter') analyze(input.value); });
 
-  // TF buttons
-  dom.tfButtons().forEach(b => {
+  // Ticker quick-select pills (.tf-pill[data-ticker])
+  document.querySelectorAll('.tf-pill[data-ticker]').forEach(b => {
     b.addEventListener('click', () => {
-      dom.tfButtons().forEach(x => x.classList.remove('active'));
+      document.querySelectorAll('.tf-pill').forEach(x => x.classList.remove('active'));
       b.classList.add('active');
-      currentTF = b.dataset.tf;
-      if (currentSymbol) analyze(currentSymbol, currentTF);
+      const ticker = b.dataset.ticker;
+      if (input) input.value = ticker;
+      analyze(ticker, currentTF);
     });
   });
 
-  // Drawer
-  dom.drawerClose()?.addEventListener('click', closeDrawer);
-  dom.drawerPanel()?.addEventListener('click', e => { if (e.target === dom.drawerPanel()) closeDrawer(); });
+  // TF <select> (#tfSelect)
+  const tfSel = dom.tfSelect();
+  if (tfSel) {
+    tfSel.addEventListener('change', () => {
+      currentTF = tfSel.value;
+      if (currentSymbol) analyze(currentSymbol, currentTF);
+    });
+  }
 
-  // Manual refresh only — NO auto-refresh timer
+  // Auto-refresh toggle (#autoRefreshBtn)
+  let autoTimer = null;
+  const autoBtn = dom.autoRefreshBtn();
+  const intervalSel = dom.refreshIntervalSel();
+  if (autoBtn) {
+    autoBtn.addEventListener('click', () => {
+      if (autoTimer) {
+        clearInterval(autoTimer);
+        autoTimer = null;
+        autoBtn.textContent = 'OFF';
+        autoBtn.classList.add('auto-off');
+        autoBtn.classList.remove('auto-on');
+      } else {
+        const secs = parseInt(intervalSel?.value || '60', 10) * 1000;
+        autoBtn.textContent = 'ON';
+        autoBtn.classList.remove('auto-off');
+        autoBtn.classList.add('auto-on');
+        autoTimer = setInterval(() => {
+          if (currentSymbol) analyze(currentSymbol, currentTF);
+        }, secs);
+      }
+    });
+  }
+
+  // Rail refresh icon (#rail-refresh)
   dom.refreshBtn()?.addEventListener('click', () => {
-    const sym = currentSymbol || dom.searchInput()?.value || '';
+    const sym = currentSymbol || input?.value || '';
     if (sym) analyze(sym);
     else showError('Enter a symbol first');
   });
 
-  // Expose for console debugging only
-  window.__atl = { analyze, openDrawer };
+  // Drawer close (optional — only if drawer elements exist)
+  dom.drawerClose()?.addEventListener('click', closeDrawer);
+  dom.drawerPanel()?.addEventListener('click', e => {
+    if (e.target === dom.drawerPanel()) closeDrawer();
+  });
+
+  // Mobile bottom rail
+  document.getElementById('mbr-analysis')?.addEventListener('click', () => {
+    document.getElementById('stage-analysis')?.scrollIntoView({ behavior: 'smooth' });
+  });
+
+  // Expose for console debugging
+  window.__atl = { analyze };
 }
 
 window.addEventListener('DOMContentLoaded', boot);
