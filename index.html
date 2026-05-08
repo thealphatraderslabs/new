@@ -6,8 +6,7 @@
   <title>ATL · Ticker Analyzer</title>
   <meta name="description" content="AlphaTradersLabs — Institutional-grade crypto chart analysis. SMC, Order Blocks, FVGs, Liquidation Map, Trade Setups.">
   <meta name="theme-color" content="#060809">
-  <link rel="stylesheet" href="style.css?v=1778157021">
-  <!-- TradingView Lightweight Charts v4 -->
+  <link rel="stylesheet" href="style.css?v=2">
   <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
 </head>
 <body>
@@ -21,7 +20,6 @@
     <div class="nav-logo">
       ATL<span>· AlphaTradersLabs</span>
     </div>
-
     <div class="search-wrap">
       <input
         id="search-input"
@@ -34,9 +32,8 @@
       >
       <button id="search-btn">SCAN</button>
     </div>
-
     <div class="nav-actions">
-      <button id="refresh-btn" title="Refresh data">⟳ Refresh</button>
+      <button id="refresh-btn" title="Manually refresh data">⟳ Refresh</button>
       <span id="last-updated">—</span>
     </div>
   </nav>
@@ -54,17 +51,14 @@
   </div>
 
   <!-- ══════════════════════════════════
-       HERO STRIP — Price + Bias
+       HERO STRIP — Price + Score
   ══════════════════════════════════ -->
   <div class="hero-strip">
-    <div>
+    <div class="hero-left">
       <div id="symbol-display">—</div>
       <div id="price-display">—</div>
     </div>
-
     <span id="change-24h" class="change-badge">—</span>
-
-    <!-- Score Ring -->
     <div class="score-wrap">
       <div class="score-ring-container">
         <svg class="score-ring-bg" viewBox="0 0 100 100">
@@ -79,43 +73,61 @@
         </svg>
         <div id="score-number" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Orbitron',monospace;font-size:10px;font-weight:700;">0</div>
       </div>
-      <div>
-        <div id="bias-chip">SCANNING…</div>
-      </div>
+      <div id="bias-chip">SCANNING…</div>
     </div>
   </div>
 
   <!-- ══════════════════════════════════
-       STATS BAR
+       STATS BAR — Scrollable ticker
   ══════════════════════════════════ -->
   <div id="stats-bar">
-    <div class="stat-item">
-      <span class="stat-label">Mark Price</span>
-      <span class="stat-value">—</span>
+    <div class="stat-item"><span class="stat-label">Mark Price</span><span class="stat-value">—</span></div>
+    <div class="stat-item"><span class="stat-label">Funding</span><span class="stat-value">—</span></div>
+    <div class="stat-item"><span class="stat-label">Open Interest</span><span class="stat-value">—</span></div>
+    <div class="stat-item"><span class="stat-label">Volume 24H</span><span class="stat-value">—</span></div>
+    <div class="stat-item"><span class="stat-label">RSI</span><span class="stat-value">—</span></div>
+    <div class="stat-item"><span class="stat-label">Structure</span><span class="stat-value">—</span></div>
+    <div class="stat-item"><span class="stat-label">Zone</span><span class="stat-value">—</span></div>
+  </div>
+
+  <!-- ══════════════════════════════════
+       DECISION BAR — One-glance trade read
+       Always visible, no clicks needed
+  ══════════════════════════════════ -->
+  <div id="decision-bar">
+    <div class="db-slot" id="db-slot-bias">
+      <span class="db-label">BIAS</span>
+      <span class="db-value" id="db-bias-val">—</span>
     </div>
-    <div class="stat-item">
-      <span class="stat-label">Funding</span>
-      <span class="stat-value">—</span>
+    <div class="db-sep"></div>
+    <div class="db-slot">
+      <span class="db-label">ENTRY ZONE</span>
+      <span class="db-value db-neutral" id="db-entry-val">—</span>
     </div>
-    <div class="stat-item">
-      <span class="stat-label">Open Interest</span>
-      <span class="stat-value">—</span>
+    <div class="db-sep"></div>
+    <div class="db-slot">
+      <span class="db-label">STOP LOSS</span>
+      <span class="db-value db-red" id="db-sl-val">—</span>
     </div>
-    <div class="stat-item">
-      <span class="stat-label">Volume 24H</span>
-      <span class="stat-value">—</span>
+    <div class="db-sep"></div>
+    <div class="db-slot">
+      <span class="db-label">TP1 / TP2 / TP3</span>
+      <span class="db-value db-green" id="db-tp-val">— / — / —</span>
     </div>
-    <div class="stat-item">
-      <span class="stat-label">RSI</span>
-      <span class="stat-value">—</span>
+    <div class="db-sep"></div>
+    <div class="db-slot">
+      <span class="db-label">STRUCTURE</span>
+      <span class="db-value" id="db-struct-val">—</span>
     </div>
-    <div class="stat-item">
-      <span class="stat-label">Structure</span>
-      <span class="stat-value">—</span>
+    <div class="db-sep"></div>
+    <div class="db-slot">
+      <span class="db-label">P/D ZONE</span>
+      <span class="db-value" id="db-zone-val">—</span>
     </div>
-    <div class="stat-item">
-      <span class="stat-label">Zone</span>
-      <span class="stat-value">—</span>
+    <div class="db-sep"></div>
+    <div class="db-slot db-slot-wide">
+      <span class="db-label">INVALIDATION</span>
+      <span class="db-value db-warn" id="db-invalid-val">—</span>
     </div>
   </div>
 
@@ -124,7 +136,6 @@
   ══════════════════════════════════ -->
   <div class="chart-area">
 
-    <!-- Main chart + Volume Profile sidebar -->
     <div class="chart-row">
       <div id="chart-container"></div>
       <div class="vol-profile-sidebar">
@@ -132,7 +143,6 @@
       </div>
     </div>
 
-    <!-- RSI + MACD sub-panels -->
     <div class="sub-panels">
       <div class="sub-panel">
         <div class="sub-panel-label">RSI (14)</div>
@@ -144,7 +154,6 @@
       </div>
     </div>
 
-    <!-- Mini analytics row -->
     <div class="mini-chart-row">
       <div class="mini-panel">
         <div class="mini-panel-label">Funding Rate History</div>
@@ -163,52 +172,44 @@
   </div>
 
   <!-- ══════════════════════════════════
-       CARD GRID — Intelligence Panels
+       TABBED INTEL PANEL
+       Replaces the old 9-card grid.
+       All info inline — zero extra clicks.
   ══════════════════════════════════ -->
-  <div class="section-heading">
-    Market Intelligence — Click any card to expand
-  </div>
-  <div id="card-grid">
-    <!-- Populated by app.js -->
-    <div class="card" style="opacity:0.3">
-      <div class="card-header"><span class="card-icon">⚡</span><span class="card-title">Market Structure</span></div>
-      <div class="card-body"><div class="card-row"><span>Loading…</span></div></div>
+  <div id="intel-panel">
+
+    <div class="intel-tabs" role="tablist">
+      <button class="intel-tab active" data-tab="setup"       role="tab">⬆ Trade Setup</button>
+      <button class="intel-tab"        data-tab="structure"   role="tab">⚡ Structure &amp; OBs</button>
+      <button class="intel-tab"        data-tab="levels"      role="tab">🎯 Levels &amp; FVGs</button>
+      <button class="intel-tab"        data-tab="derivatives" role="tab">📡 Derivatives</button>
     </div>
-    <div class="card" style="opacity:0.3">
-      <div class="card-header"><span class="card-icon">🧱</span><span class="card-title">Order Blocks</span></div>
-      <div class="card-body"><div class="card-row"><span>Loading…</span></div></div>
-    </div>
-    <div class="card" style="opacity:0.3">
-      <div class="card-header"><span class="card-icon">📐</span><span class="card-title">Fair Value Gaps</span></div>
-      <div class="card-body"><div class="card-row"><span>Loading…</span></div></div>
-    </div>
-    <div class="card" style="opacity:0.3">
-      <div class="card-header"><span class="card-icon">🎯</span><span class="card-title">Premium / Discount</span></div>
-      <div class="card-body"><div class="card-row"><span>Loading…</span></div></div>
-    </div>
-    <div class="card" style="opacity:0.3">
-      <div class="card-header"><span class="card-icon">📡</span><span class="card-title">Derivatives</span></div>
-      <div class="card-body"><div class="card-row"><span>Loading…</span></div></div>
-    </div>
-    <div class="card" style="opacity:0.3">
-      <div class="card-header"><span class="card-icon">💥</span><span class="card-title">Liquidation Map</span></div>
-      <div class="card-body"><div class="card-row"><span>Loading…</span></div></div>
-    </div>
-    <div class="card" style="opacity:0.3">
-      <div class="card-header"><span class="card-icon">⬆</span><span class="card-title">Trade Setup</span></div>
-      <div class="card-body"><div class="card-row"><span>Loading…</span></div></div>
-    </div>
-    <div class="card" style="opacity:0.3">
-      <div class="card-header"><span class="card-icon">📊</span><span class="card-title">RSI + MACD</span></div>
-      <div class="card-body"><div class="card-row"><span>Loading…</span></div></div>
-    </div>
-    <div class="card" style="opacity:0.3">
-      <div class="card-header"><span class="card-icon">📖</span><span class="card-title">Order Book</span></div>
-      <div class="card-body"><div class="card-row"><span>Loading…</span></div></div>
+
+    <div class="intel-panes">
+
+      <!-- TAB 1: SETUP — entry/sl/tp + confluence + scenarios -->
+      <div class="intel-pane active" id="tab-setup">
+        <div class="pane-placeholder">Enter a symbol and press SCAN to load analysis.</div>
+      </div>
+
+      <!-- TAB 2: STRUCTURE — market structure + order blocks + divergences -->
+      <div class="intel-pane" id="tab-structure">
+        <div class="pane-placeholder">Enter a symbol and press SCAN to load analysis.</div>
+      </div>
+
+      <!-- TAB 3: LEVELS — premium/discount + FVGs + liquidation map -->
+      <div class="intel-pane" id="tab-levels">
+        <div class="pane-placeholder">Enter a symbol and press SCAN to load analysis.</div>
+      </div>
+
+      <!-- TAB 4: DERIVATIVES — funding + OI + taker flow + order book -->
+      <div class="intel-pane" id="tab-derivatives">
+        <div class="pane-placeholder">Enter a symbol and press SCAN to load analysis.</div>
+      </div>
+
     </div>
   </div>
 
-  <!-- Footer -->
   <div class="footer">
     <span>ATL</span> · AlphaTradersLabs · Ticker Analyzer ·
     Data: Bybit V5 · Binance FAPI · SPOT ·
@@ -217,24 +218,17 @@
 
 </div><!-- /#app -->
 
-<!-- ══════════════════════════════════
-     DRAWER — Slide-in Detail Panel
-══════════════════════════════════ -->
+<!-- Drawer still available for ultra-deep dives -->
 <div id="drawer-panel">
   <div class="drawer-inner">
     <div class="drawer-header">
       <div id="drawer-title">Analysis</div>
       <button id="drawer-close">✕</button>
     </div>
-    <div id="drawer-content">
-      <!-- Populated dynamically -->
-    </div>
+    <div id="drawer-content"></div>
   </div>
 </div>
 
-<!-- ══════════════════════════════════
-     LOADING OVERLAY
-══════════════════════════════════ -->
 <div id="loading-overlay">
   <div class="loading-logo">ATL ANALYZER</div>
   <div class="loading-spinner"></div>
@@ -244,17 +238,10 @@
   </div>
 </div>
 
-<!-- ══════════════════════════════════
-     ERROR BANNER
-══════════════════════════════════ -->
 <div id="error-banner">
   <span id="error-text">Error</span>
 </div>
 
-<!-- ══════════════════════════════════
-     SCRIPTS
-══════════════════════════════════ -->
-<script type="module" src="app.js?v=1778157021"></script>
-
+<script type="module" src="app.js?v=2"></script>
 </body>
 </html>
