@@ -149,6 +149,7 @@ async function analyze(symbol, tf = currentTF) {
     updateStatsBar(rawData, analysis);
     populateDecisionBar(analysis, signal);
     buildIntelTabs(analysis, signal, rawData);
+    renderMiniCharts(rawData, analysis);
     updateLastUpdated();
     window.__atlSetStatus?.('live');
 
@@ -1241,6 +1242,139 @@ function truncate(str, n) {
 function updateLastUpdated() {
   const el = dom.lastUpdated();
   if (el) el.textContent = `Updated ${new Date().toLocaleTimeString()}`;
+}
+
+// ── Mini SVG sparkline helper ──────────────────────────────────
+function svgSparkline(container, values, color, fillOpacity = 0.15) {
+  if (!container || !values?.length) return;
+  const W = container.offsetWidth || 120;
+  const H = container.offsetHeight || 68;
+  const filtered = values.filter(v => v != null && isFinite(v));
+  if (filtered.length < 2) return;
+  const min = Math.min(...filtered);
+  const max = Math.max(...filtered);
+  const range = max - min || 1;
+  const pts = filtered.map((v, i) => {
+    const x = (i / (filtered.length - 1)) * W;
+    const y = H - ((v - min) / range) * (H - 4) - 2;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+  const poly = pts.join(' ');
+  const fillPath = `M${pts[0]} L${pts.join(' L')} L${W},${H} L0,${H} Z`;
+  container.innerHTML = `
+    <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="display:block">
+      <defs>
+        <linearGradient id="sg${color.replace('#','')}" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="${color}" stop-opacity="${fillOpacity * 3}"/>
+          <stop offset="100%" stop-color="${color}" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      <path d="${fillPath}" fill="url(#sg${color.replace('#','')})" />
+      <polyline points="${poly}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+      <circle cx="${pts[pts.length-1].split(',')[0]}" cy="${pts[pts.length-1].split(',')[1]}" r="2" fill="${color}"/>
+    </svg>`;
+}
+
+// ── RSI sparkline in sub-panel ─────────────────────────────────
+function renderRSIPanel(container, rsiValues) {
+  if (!container) return;
+  const vals = rsiValues.filter(v => v != null);
+  const last = vals[vals.length - 1];
+  const col  = last > 70 ? '#ff4444' : last < 30 ? '#00e676' : '#a78bfa';
+  // Zone lines at 70 and 30
+  const W = container.offsetWidth || 200;
+  const H = 90;
+  const toY = v => H - ((v - 0) / 100) * (H - 6) - 3;
+  const recent = vals.slice(-100);
+  const pts = recent.map((v, i) => `${((i / (recent.length - 1)) * W).toFixed(1)},${toY(v).toFixed(1)}`).join(' ');
+  container.innerHTML = `
+    <svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="display:block">
+      <line x1="0" y1="${toY(70)}" x2="${W}" y2="${toY(70)}" stroke="rgba(255,68,68,0.25)" stroke-width="1" stroke-dasharray="3,3"/>
+      <line x1="0" y1="${toY(30)}" x2="${W}" y2="${toY(30)}" stroke="rgba(0,230,118,0.25)" stroke-width="1" stroke-dasharray="3,3"/>
+      <line x1="0" y1="${toY(50)}" x2="${W}" y2="${toY(50)}" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+      <polyline points="${pts}" fill="none" stroke="${col}" stroke-width="1.5" stroke-linejoin="round"/>
+      <text x="4" y="10" fill="${col}" font-size="9" font-family="monospace">${last?.toFixed(1)}</text>
+    </svg>`;
+}
+
+// ── MACD histogram in sub-panel ────────────────────────────────
+function renderMACDPanel(container, macdData) {
+  if (!container || !macdData) return;
+  const { macdLine, signalLine, histogram } = macdData;
+  const recent = histogram.slice(-80);
+  const W = container.offsetWidth || 200;
+  const H = 90;
+  const max = Math.max(...recent.map(Math.abs)) || 1;
+  const midY = H / 2;
+  const barW = (W / recent.length) - 0.5;
+  const bars = recent.map((v, i) => {
+    const h = Math.abs(v) / max * (midY - 4);
+    const y = v >= 0 ? midY - h : midY;
+    const col = v >= 0 ? 'rgba(0,230,118,0.7)' : 'rgba(255,68,68,0.7)';
+    return `<rect x="${(i * W / recent.length).toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}" fill="${col}"/>`;
+  }).join('');
+  // MACD and signal lines
+  const lineRecent = macdLine.slice(-80);
+  const sigRecent  = signalLine.slice(-80);
+  const lineMin = Math.min(...lineRecent, ...sigRecent);
+  const lineMax = Math.max(...lineRecent, ...sigRecent);
+  const lineRange = lineMax - lineMin || 1;
+  const toY = v => H - ((v - lineMin) / lineRange) * (H - 8) - 4;
+  const macdPts = lineRecent.map((v,i) => `${(i*W/lineRecent.length).toFixed(1)},${toY(v).toFixed(1)}`).join(' ');
+  const sigPts  = sigRecent.map((v,i) =>  `${(i*W/sigRecent.length).toFixed(1)},${toY(v).toFixed(1)}`).join(' ');
+  container.innerHTML = `
+    <svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="display:block">
+      ${bars}
+      <line x1="0" y1="${midY}" x2="${W}" y2="${midY}" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+      <polyline points="${macdPts}" fill="none" stroke="#40c4ff" stroke-width="1.2"/>
+      <polyline points="${sigPts}"  fill="none" stroke="#ff7c7c" stroke-width="1"/>
+    </svg>`;
+}
+
+// ── Mini Analytics (funding / OI / liquidation) ────────────────
+function renderMiniCharts(data, analysis) {
+  // RSI sub-panel
+  const rsiEl  = dom.rsiContainer();
+  const macdEl = dom.macdContainer();
+  if (rsiEl)  renderRSIPanel(rsiEl, analysis.rsi);
+  if (macdEl) renderMACDPanel(macdEl, analysis.macd);
+
+  // Funding history mini
+  const fundEl = dom.fundingMini();
+  if (fundEl && data.fundingHist?.length) {
+    svgSparkline(fundEl, data.fundingHist.map(h => h.rate), '#ffd54f', 0.2);
+  }
+
+  // OI history mini
+  const oiEl = dom.oiMini();
+  if (oiEl && data.oiHistory?.length) {
+    const rising = data.oiHistory.slice(-1)[0]?.oi > data.oiHistory[0]?.oi;
+    svgSparkline(oiEl, data.oiHistory.map(o => o.oi), rising ? '#00e676' : '#ff4444', 0.15);
+  }
+
+  // Liquidation levels mini bar chart
+  const liqEl = dom.liqContainer();
+  if (liqEl && analysis.liqLevels) {
+    const liq = analysis.liqLevels;
+    const price = analysis.price;
+    const items = [
+      ...liq.shortLiqs.slice(0, 3).map(l => ({ label: l.label, price: l.price, side: 'short' })),
+      ...liq.longLiqs.slice(0, 3).map(l => ({ label: l.label, price: l.price, side: 'long' })),
+    ].sort((a, b) => b.price - a.price);
+    liqEl.innerHTML = `<div style="padding:4px 8px;display:flex;flex-direction:column;gap:2px;height:100%">
+      ${items.map(l => {
+        const pct = ((l.price - price) / price * 100).toFixed(1);
+        const col = l.side === 'short' ? '#ff4444' : '#00e676';
+        return `<div style="display:flex;align-items:center;gap:4px;flex:1">
+          <span style="font-size:7px;color:${col};width:28px;flex-shrink:0">${l.label}</span>
+          <div style="flex:1;height:2px;background:rgba(255,255,255,0.06);border-radius:1px">
+            <div style="width:${Math.min(Math.abs(parseFloat(pct))*8,100)}%;height:100%;background:${col};border-radius:1px"></div>
+          </div>
+          <span style="font-size:7px;color:#5a6470;width:36px;text-align:right">${pct}%</span>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
 }
 
 // ── Tab switching ──────────────────────────────────────────────
