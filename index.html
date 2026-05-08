@@ -4,244 +4,426 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
   <title>ATL · Ticker Analyzer</title>
-  <meta name="description" content="AlphaTradersLabs — Institutional-grade crypto chart analysis. SMC, Order Blocks, FVGs, Liquidation Map, Trade Setups.">
-  <meta name="theme-color" content="#060809">
-  <link rel="stylesheet" href="style.css?v=2">
+  <meta name="description" content="AlphaTradersLabs — Institutional-grade crypto analysis terminal.">
+  <meta name="theme-color" content="#080b0f">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
   <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
 </head>
 <body>
 
-<div id="app">
-
-  <!-- ══════════════════════════════════
-       NAVIGATION
-  ══════════════════════════════════ -->
-  <nav class="nav">
-    <div class="nav-logo">
-      ATL<span>· AlphaTradersLabs</span>
-    </div>
-    <div class="search-wrap">
-      <input
-        id="search-input"
-        type="text"
-        placeholder="BTC, ETH, SOL…"
-        autocomplete="off"
-        autocorrect="off"
-        spellcheck="false"
-        maxlength="12"
-      >
-      <button id="search-btn">SCAN</button>
-    </div>
-    <div class="nav-actions">
-      <button id="refresh-btn" title="Manually refresh data">⟳ Refresh</button>
-      <span id="last-updated">—</span>
-    </div>
-  </nav>
-
-  <!-- ══════════════════════════════════
-       TIMEFRAME BAR
-  ══════════════════════════════════ -->
-  <div class="tf-bar">
-    <button data-tf="1m">1m</button>
-    <button data-tf="5m">5m</button>
-    <button data-tf="15m">15m</button>
-    <button data-tf="1h" class="active">1H</button>
-    <button data-tf="4h">4H</button>
-    <button data-tf="1d">1D</button>
+<!-- ══ HEADER ══════════════════════════════════════════════════ -->
+<header id="atl-header">
+  <div class="atl-logo">
+    <span class="accent">ATL</span><span class="dot">·</span>ANALYZER
   </div>
-
-  <!-- ══════════════════════════════════
-       HERO STRIP — Price + Score
-  ══════════════════════════════════ -->
-  <div class="hero-strip">
-    <div class="hero-left">
-      <div id="symbol-display">—</div>
-      <div id="price-display">—</div>
-    </div>
-    <span id="change-24h" class="change-badge">—</span>
-    <div class="score-wrap">
-      <div class="score-ring-container">
-        <svg class="score-ring-bg" viewBox="0 0 100 100">
-          <circle cx="50" cy="50" r="45"/>
-        </svg>
-        <svg viewBox="0 0 100 100" style="position:absolute;inset:0;transform:rotate(-90deg);transform-origin:center;">
-          <circle id="score-ring" cx="50" cy="50" r="45"
-            fill="none" stroke="#00e676" stroke-width="6"
-            stroke-dasharray="283" stroke-dashoffset="283"
-            stroke-linecap="round"
-            style="transition: stroke-dashoffset 0.8s cubic-bezier(0.25,1,0.5,1), stroke 0.4s ease;"/>
-        </svg>
-        <div id="score-number" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Orbitron',monospace;font-size:10px;font-weight:700;">0</div>
-      </div>
-      <div id="bias-chip">SCANNING…</div>
+  <div class="header-divider"></div>
+  <span class="header-tag">MARKET INTELLIGENCE TERMINAL</span>
+  <div class="header-right">
+    <span id="atl-clock">00:00:00 UTC</span>
+    <div class="status-pill">
+      <div class="status-dot" id="global-status-dot"></div>
+      <span id="global-status-text">READY</span>
     </div>
   </div>
+</header>
 
-  <!-- ══════════════════════════════════
-       STATS BAR — Scrollable ticker
-  ══════════════════════════════════ -->
-  <div id="stats-bar">
-    <div class="stat-item"><span class="stat-label">Mark Price</span><span class="stat-value">—</span></div>
-    <div class="stat-item"><span class="stat-label">Funding</span><span class="stat-value">—</span></div>
-    <div class="stat-item"><span class="stat-label">Open Interest</span><span class="stat-value">—</span></div>
-    <div class="stat-item"><span class="stat-label">Volume 24H</span><span class="stat-value">—</span></div>
-    <div class="stat-item"><span class="stat-label">RSI</span><span class="stat-value">—</span></div>
-    <div class="stat-item"><span class="stat-label">Structure</span><span class="stat-value">—</span></div>
-    <div class="stat-item"><span class="stat-label">Zone</span><span class="stat-value">—</span></div>
+<!-- ══ VERTICAL ICON RAIL ══════════════════════════════════════ -->
+<nav id="atl-rail">
+  <!-- Analysis (active) -->
+  <div class="rail-icon active" id="rail-analysis" title="Analysis">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+      <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+    </svg>
   </div>
-
-  <!-- ══════════════════════════════════
-       DECISION BAR — One-glance trade read
-       Always visible, no clicks needed
-  ══════════════════════════════════ -->
-  <div id="decision-bar">
-    <div class="db-slot" id="db-slot-bias">
-      <span class="db-label">BIAS</span>
-      <span class="db-value" id="db-bias-val">—</span>
-    </div>
-    <div class="db-sep"></div>
-    <div class="db-slot">
-      <span class="db-label">ENTRY ZONE</span>
-      <span class="db-value db-neutral" id="db-entry-val">—</span>
-    </div>
-    <div class="db-sep"></div>
-    <div class="db-slot">
-      <span class="db-label">STOP LOSS</span>
-      <span class="db-value db-red" id="db-sl-val">—</span>
-    </div>
-    <div class="db-sep"></div>
-    <div class="db-slot">
-      <span class="db-label">TP1 / TP2 / TP3</span>
-      <span class="db-value db-green" id="db-tp-val">— / — / —</span>
-    </div>
-    <div class="db-sep"></div>
-    <div class="db-slot">
-      <span class="db-label">STRUCTURE</span>
-      <span class="db-value" id="db-struct-val">—</span>
-    </div>
-    <div class="db-sep"></div>
-    <div class="db-slot">
-      <span class="db-label">P/D ZONE</span>
-      <span class="db-value" id="db-zone-val">—</span>
-    </div>
-    <div class="db-sep"></div>
-    <div class="db-slot db-slot-wide">
-      <span class="db-label">INVALIDATION</span>
-      <span class="db-value db-warn" id="db-invalid-val">—</span>
-    </div>
+  <div class="rail-divider"></div>
+  <!-- SMC Scanner — stubbed -->
+  <div class="rail-icon rail-stub" title="SMC Scanner (coming soon)">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+      <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      <line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/>
+    </svg>
   </div>
-
-  <!-- ══════════════════════════════════
-       CHART AREA
-  ══════════════════════════════════ -->
-  <div class="chart-area">
-
-    <div class="chart-row">
-      <div id="chart-container"></div>
-      <div class="vol-profile-sidebar">
-        <div id="vol-profile-container"></div>
-      </div>
-    </div>
-
-    <div class="sub-panels">
-      <div class="sub-panel">
-        <div class="sub-panel-label">RSI (14)</div>
-        <div id="rsi-container"></div>
-      </div>
-      <div class="sub-panel">
-        <div class="sub-panel-label">MACD (12/26/9)</div>
-        <div id="macd-container"></div>
-      </div>
-    </div>
-
-    <div class="mini-chart-row">
-      <div class="mini-panel">
-        <div class="mini-panel-label">Funding Rate History</div>
-        <div id="funding-mini"></div>
-      </div>
-      <div class="mini-panel">
-        <div class="mini-panel-label">Open Interest</div>
-        <div id="oi-mini"></div>
-      </div>
-      <div class="mini-panel">
-        <div class="mini-panel-label">Liquidation Levels</div>
-        <div id="liq-container"></div>
-      </div>
-    </div>
-
+  <div class="rail-divider"></div>
+  <!-- MIT Scan — stubbed -->
+  <div class="rail-icon rail-stub" title="MIT Scan (coming soon)">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+    </svg>
   </div>
-
-  <!-- ══════════════════════════════════
-       TABBED INTEL PANEL
-       Replaces the old 9-card grid.
-       All info inline — zero extra clicks.
-  ══════════════════════════════════ -->
-  <div id="intel-panel">
-
-    <div class="intel-tabs" role="tablist">
-      <button class="intel-tab active" data-tab="setup"       role="tab">⬆ Trade Setup</button>
-      <button class="intel-tab"        data-tab="structure"   role="tab">⚡ Structure &amp; OBs</button>
-      <button class="intel-tab"        data-tab="levels"      role="tab">🎯 Levels &amp; FVGs</button>
-      <button class="intel-tab"        data-tab="derivatives" role="tab">📡 Derivatives</button>
-    </div>
-
-    <div class="intel-panes">
-
-      <!-- TAB 1: SETUP — entry/sl/tp + confluence + scenarios -->
-      <div class="intel-pane active" id="tab-setup">
-        <div class="pane-placeholder">Enter a symbol and press SCAN to load analysis.</div>
-      </div>
-
-      <!-- TAB 2: STRUCTURE — market structure + order blocks + divergences -->
-      <div class="intel-pane" id="tab-structure">
-        <div class="pane-placeholder">Enter a symbol and press SCAN to load analysis.</div>
-      </div>
-
-      <!-- TAB 3: LEVELS — premium/discount + FVGs + liquidation map -->
-      <div class="intel-pane" id="tab-levels">
-        <div class="pane-placeholder">Enter a symbol and press SCAN to load analysis.</div>
-      </div>
-
-      <!-- TAB 4: DERIVATIVES — funding + OI + taker flow + order book -->
-      <div class="intel-pane" id="tab-derivatives">
-        <div class="pane-placeholder">Enter a symbol and press SCAN to load analysis.</div>
-      </div>
-
-    </div>
+  <div class="rail-divider"></div>
+  <!-- BTC Scan — stubbed -->
+  <div class="rail-icon rail-stub" title="BTC Pair Scanner (coming soon)">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+      <circle cx="12" cy="12" r="9"/>
+      <path d="M9 8h4.5a2 2 0 0 1 0 4H9v0h5a2 2 0 0 1 0 4H9"/>
+      <line x1="11" y1="6" x2="11" y2="8"/><line x1="13" y1="6" x2="13" y2="8"/>
+      <line x1="11" y1="16" x2="11" y2="18"/><line x1="13" y1="16" x2="13" y2="18"/>
+    </svg>
   </div>
-
-  <div class="footer">
-    <span>ATL</span> · AlphaTradersLabs · Ticker Analyzer ·
-    Data: Bybit V5 · Binance FAPI · SPOT ·
-    Not financial advice.
+  <!-- Help pushed to bottom -->
+  <div class="rail-divider" style="margin-top:auto"></div>
+  <div class="rail-icon" id="rail-refresh" title="Refresh data">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+      <polyline points="23 4 23 10 17 10"/>
+      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+    </svg>
   </div>
+</nav>
 
-</div><!-- /#app -->
-
-<!-- Drawer still available for ultra-deep dives -->
-<div id="drawer-panel">
-  <div class="drawer-inner">
-    <div class="drawer-header">
-      <div id="drawer-title">Analysis</div>
-      <button id="drawer-close">✕</button>
-    </div>
-    <div id="drawer-content"></div>
-  </div>
+<!-- ══ MOBILE BOTTOM RAIL ══════════════════════════════════════ -->
+<div id="mobile-bottom-rail">
+  <button class="mbr-btn active" id="mbr-analysis">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+    <span>Analysis</span>
+  </button>
+  <button class="mbr-btn" id="mbr-deriv">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+    <span>Deriv</span>
+  </button>
+  <button class="mbr-btn" id="mbr-trade">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+    <span>Setup</span>
+  </button>
 </div>
 
+<!-- ══ STAGE ════════════════════════════════════════════════════ -->
+<div id="stage">
+<div id="stage-analysis">
+
+  <!-- ── COMMAND BAR ─────────────────────────────────────────── -->
+  <div id="analysis-cmd">
+    <span class="cmd-label">TICKER</span>
+    <input id="tickerInput" type="text" placeholder="BTC" maxlength="12"
+           autocomplete="off" autocorrect="off" spellcheck="false">
+    <span class="cmd-label">TF</span>
+    <select id="tfSelect">
+      <option value="1m">1m</option>
+      <option value="5m">5m</option>
+      <option value="15m">15m</option>
+      <option value="1h" selected>1H</option>
+      <option value="4h">4H</option>
+      <option value="1d">1D</option>
+    </select>
+    <div class="tf-pills">
+      <button class="tf-pill" data-ticker="BTC">BTC</button>
+      <button class="tf-pill" data-ticker="ETH">ETH</button>
+      <button class="tf-pill" data-ticker="SOL">SOL</button>
+      <button class="tf-pill" data-ticker="BNB">BNB</button>
+      <button class="tf-pill" data-ticker="DOGE">DOGE</button>
+    </div>
+    <button id="analysisBtn">ANALYSE</button>
+    <span id="statusMsg"></span>
+    <div class="cmd-sep"></div>
+    <span class="cmd-label">AUTO</span>
+    <button id="autoRefreshBtn" class="auto-off">OFF</button>
+    <select id="refreshIntervalSel">
+      <option value="30">30s</option>
+      <option value="60" selected>1m</option>
+      <option value="120">2m</option>
+      <option value="300">5m</option>
+    </select>
+    <span id="last-updated"></span>
+  </div>
+
+  <!-- ── PRICE HERO ──────────────────────────────────────────── -->
+  <div id="price-hero">
+    <div class="ph-main">
+      <div class="ph-ticker" id="h-ticker">—</div>
+      <div class="ph-price" id="h-price">—</div>
+      <div class="ph-change neutral" id="h-change">—</div>
+    </div>
+    <div class="ph-stats">
+      <div class="ph-stat"><div class="ph-stat-label">24H HIGH</div><div class="ph-stat-val" id="h-high">—</div></div>
+      <div class="ph-stat"><div class="ph-stat-label">24H LOW</div><div class="ph-stat-val" id="h-low">—</div></div>
+      <div class="ph-stat"><div class="ph-stat-label">VOLUME 24H</div><div class="ph-stat-val" id="h-vol">—</div></div>
+      <div class="ph-stat"><div class="ph-stat-label">OPEN INTEREST</div><div class="ph-stat-val" id="h-oi">—</div></div>
+      <div class="ph-stat"><div class="ph-stat-label">FUNDING</div><div class="ph-stat-val" id="h-funding">—</div></div>
+      <div class="ph-stat"><div class="ph-stat-label">RSI (14)</div><div class="ph-stat-val" id="h-rsi">—</div></div>
+      <div class="ph-stat"><div class="ph-stat-label">MARK PRICE</div><div class="ph-stat-val" id="h-mark">—</div></div>
+      <div class="ph-stat"><div class="ph-stat-label">ATR (14)</div><div class="ph-stat-val" id="h-atr">—</div></div>
+    </div>
+    <div class="ph-bias">
+      <div class="ph-bias-label">OVERALL BIAS</div>
+      <div class="ph-bias-val neutral" id="h-bias">—</div>
+      <div class="ph-bias-conf" id="h-bias-conf">Run analysis first</div>
+    </div>
+  </div>
+
+  <!-- ── MOBILE PANEL TABS ───────────────────────────────────── -->
+  <div id="mobile-panel-tabs">
+    <button class="mpt-btn active" data-panel="struct">Chart &amp; Structure</button>
+    <button class="mpt-btn" data-panel="deriv">Derivatives</button>
+    <button class="mpt-btn" data-panel="trade">Trade Setup</button>
+  </div>
+
+  <!-- ── 3-COL ANALYSIS GRID ────────────────────────────────── -->
+  <div id="analysis-grid">
+
+    <!-- LEFT: DERIVATIVES ──────────────────────────────────── -->
+    <div class="a-panel" id="panel-deriv">
+
+      <div class="panel-hd">
+        <span class="panel-hd-label">DERIVATIVES INTEL</span>
+      </div>
+
+      <!-- Funding Rate -->
+      <div class="deriv-section">
+        <div class="deriv-sec-title">FUNDING RATE</div>
+        <div class="deriv-row"><span class="deriv-key">CURRENT RATE</span><span class="deriv-val" id="d-funding">—</span></div>
+        <div class="deriv-row"><span class="deriv-key">NEXT FUNDING</span><span class="deriv-val" id="d-funding-t">—</span></div>
+        <div class="deriv-row"><span class="deriv-key">INTERPRETATION</span><span class="deriv-val" id="d-funding-interp">—</span></div>
+      </div>
+
+      <!-- Open Interest -->
+      <div class="deriv-section">
+        <div class="deriv-sec-title">OPEN INTEREST</div>
+        <div class="deriv-row"><span class="deriv-key">OI VALUE</span><span class="deriv-val" id="d-oi">—</span></div>
+        <div class="deriv-row"><span class="deriv-key">24H TREND</span><span class="deriv-val" id="d-oi-trend">—</span></div>
+        <div class="oi-spark-wrap">
+          <div class="oi-spark-label">OI HISTORY (48H)</div>
+          <div class="oi-spark-bars" id="oi-spark"></div>
+        </div>
+      </div>
+
+      <!-- Taker Flow -->
+      <div class="deriv-section">
+        <div class="deriv-sec-title">TAKER FLOW</div>
+        <div class="deriv-row"><span class="deriv-key">NET BIAS</span><span class="deriv-val" id="d-taker-bias">—</span></div>
+        <div class="ls-bar-wrap">
+          <div class="ls-bar-track">
+            <div class="ls-long-fill" id="d-taker-bar" style="width:50%"></div>
+          </div>
+          <div class="ls-labels">
+            <span class="ls-long-lbl" id="d-buy-pct">BUY —</span>
+            <span class="ls-short-lbl" id="d-sell-pct">SELL —</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Order Book -->
+      <div class="deriv-section">
+        <div class="deriv-sec-title">ORDER BOOK DEPTH</div>
+        <div class="deriv-row"><span class="deriv-key">BOOK BIAS</span><span class="deriv-val" id="d-ob-bias">—</span></div>
+        <div class="ls-bar-wrap">
+          <div class="ls-bar-track">
+            <div class="ls-long-fill" id="d-ob-bar" style="width:50%"></div>
+          </div>
+          <div class="ls-labels">
+            <span class="ls-long-lbl" id="d-bid-pct">BID —</span>
+            <span class="ls-short-lbl" id="d-ask-pct">ASK —</span>
+          </div>
+        </div>
+        <div class="deriv-row"><span class="deriv-key">BID WALLS</span><span class="deriv-val" id="d-bid-walls">—</span></div>
+        <div class="deriv-row"><span class="deriv-key">ASK WALLS</span><span class="deriv-val" id="d-ask-walls">—</span></div>
+      </div>
+
+      <!-- Mark / Index -->
+      <div class="deriv-section">
+        <div class="deriv-sec-title">MARK / INDEX</div>
+        <div class="deriv-row"><span class="deriv-key">MARK PRICE</span><span class="deriv-val" id="d-mark">—</span></div>
+        <div class="deriv-row"><span class="deriv-key">INDEX PRICE</span><span class="deriv-val" id="d-index">—</span></div>
+        <div class="deriv-row"><span class="deriv-key">SPREAD</span><span class="deriv-val" id="d-spread">—</span></div>
+      </div>
+
+      <!-- Liquidation clusters -->
+      <div class="deriv-section">
+        <div class="deriv-sec-title">EST. LIQ. CLUSTERS</div>
+        <div id="liq-container">
+          <div class="empty-state" style="height:50px;font-size:8px">RUN ANALYSIS FIRST</div>
+        </div>
+      </div>
+
+      <!-- Funding history -->
+      <div class="deriv-section">
+        <div class="deriv-sec-title">FUNDING HISTORY (LAST 8)</div>
+        <div id="funding-history-list">
+          <div class="empty-state" style="height:40px;font-size:8px">—</div>
+        </div>
+      </div>
+
+    </div><!-- /panel-deriv -->
+
+    <!-- CENTRE: STRUCTURE + CHART ───────────────────────────── -->
+    <div class="a-panel" id="panel-struct">
+
+      <div class="panel-hd">
+        <span class="panel-hd-label" id="struct-tf-label">MARKET STRUCTURE</span>
+        <span class="panel-hd-sub" id="struct-updated">—</span>
+      </div>
+
+      <!-- Chart -->
+      <div id="canvasWrap">
+        <div id="chart-container"></div>
+      </div>
+
+      <!-- Sub-panels: RSI + MACD -->
+      <div id="sub-panels">
+        <div class="sub-panel">
+          <div class="sub-panel-label">RSI (14)</div>
+          <div id="rsi-container"></div>
+        </div>
+        <div class="sub-panel">
+          <div class="sub-panel-label">MACD (12/26/9)</div>
+          <div id="macd-container"></div>
+        </div>
+      </div>
+
+      <!-- Structure summary grid -->
+      <div class="struct-grid">
+        <div class="struct-cell">
+          <div class="struct-cell-label">SUPERTREND / TREND</div>
+          <div class="struct-cell-value" id="s-trend">—</div>
+          <div class="struct-cell-sub" id="s-trend-sub">—</div>
+        </div>
+        <div class="struct-cell">
+          <div class="struct-cell-label">HTF BIAS (4H)</div>
+          <div class="struct-cell-value" id="s-htf">—</div>
+          <div class="struct-cell-sub" id="s-htf-sub">—</div>
+        </div>
+        <div class="struct-cell">
+          <div class="struct-cell-label">BOS / CHoCH</div>
+          <div class="struct-cell-value" id="s-struct"><span class="tag neutral">NONE</span></div>
+          <div class="struct-cell-sub" id="s-struct-sub">—</div>
+        </div>
+        <div class="struct-cell">
+          <div class="struct-cell-label">P/D ZONE</div>
+          <div class="struct-cell-value" id="s-zone">—</div>
+          <div class="struct-cell-sub" id="s-zone-sub">—</div>
+        </div>
+        <div class="struct-cell">
+          <div class="struct-cell-label">SWING HIGH</div>
+          <div class="struct-cell-value" id="s-sh">—</div>
+          <div class="struct-cell-sub" id="s-sh-sub">—</div>
+        </div>
+        <div class="struct-cell">
+          <div class="struct-cell-label">SWING LOW</div>
+          <div class="struct-cell-value" id="s-sl">—</div>
+          <div class="struct-cell-sub" id="s-sl-sub">—</div>
+        </div>
+      </div>
+
+      <!-- Order Blocks -->
+      <div class="panel-hd panel-hd-inner">
+        <span class="panel-hd-label">ORDER BLOCKS</span>
+        <span class="panel-hd-sub">NEAREST FRESH ZONES</span>
+      </div>
+      <div id="ob-container">
+        <div class="empty-state" style="height:50px;font-size:8px">RUN ANALYSIS FIRST</div>
+      </div>
+
+      <!-- FVGs -->
+      <div class="panel-hd panel-hd-inner">
+        <span class="panel-hd-label">FAIR VALUE GAPS</span>
+        <span class="panel-hd-sub" id="fvg-count">—</span>
+      </div>
+      <div class="fvg-list" id="fvg-list">
+        <div class="empty-state" style="height:36px;font-size:8px">RUN ANALYSIS FIRST</div>
+      </div>
+
+      <!-- Key S/R -->
+      <div class="panel-hd panel-hd-inner">
+        <span class="panel-hd-label">KEY S/R LEVELS</span>
+        <span class="panel-hd-sub">NEAREST 10</span>
+      </div>
+      <div class="levels-row" id="sr-levels">
+        <div class="empty-state" style="height:40px;font-size:8px">RUN ANALYSIS FIRST</div>
+      </div>
+
+      <!-- Mini analytics -->
+      <div class="panel-hd panel-hd-inner">
+        <span class="panel-hd-label">MINI ANALYTICS</span>
+      </div>
+      <div id="mini-chart-row">
+        <div class="mini-panel">
+          <div class="mini-panel-label">Funding History</div>
+          <div id="funding-mini"></div>
+        </div>
+        <div class="mini-panel">
+          <div class="mini-panel-label">Open Interest</div>
+          <div id="oi-mini"></div>
+        </div>
+        <div class="mini-panel">
+          <div class="mini-panel-label">Liquidation Levels</div>
+          <div id="liq-mini"></div>
+        </div>
+      </div>
+
+    </div><!-- /panel-struct -->
+
+    <!-- RIGHT: TRADE SETUP ──────────────────────────────────── -->
+    <div class="a-panel" id="panel-trade">
+
+      <div class="panel-hd">
+        <span class="panel-hd-label">TRADE SCENARIOS</span>
+      </div>
+
+      <!-- Decision strip — always visible at top of panel -->
+      <div id="decision-strip">
+        <div class="ds-slot" id="ds-bias-slot">
+          <div class="ds-label">BIAS</div>
+          <div class="ds-val" id="ds-bias">—</div>
+        </div>
+        <div class="ds-sep"></div>
+        <div class="ds-slot">
+          <div class="ds-label">ENTRY</div>
+          <div class="ds-val" id="ds-entry">—</div>
+        </div>
+        <div class="ds-sep"></div>
+        <div class="ds-slot">
+          <div class="ds-label">STOP LOSS</div>
+          <div class="ds-val ds-red" id="ds-sl">—</div>
+        </div>
+        <div class="ds-sep"></div>
+        <div class="ds-slot">
+          <div class="ds-label">TP1 / TP2 / TP3</div>
+          <div class="ds-val ds-green" id="ds-tp">— / — / —</div>
+        </div>
+        <div class="ds-sep"></div>
+        <div class="ds-slot ds-slot-wide">
+          <div class="ds-label">INVALIDATION</div>
+          <div class="ds-val ds-warn" id="ds-invalid">—</div>
+        </div>
+      </div>
+
+      <!-- Setup content populated by JS -->
+      <div id="scenarios-wrap">
+        <div class="empty-state" style="padding:40px 20px">
+          <div class="empty-glyph">◎</div>
+          ENTER A TICKER AND RUN ANALYSIS<br>
+          <span style="font-size:8px;color:var(--muted);margin-top:6px;display:block">
+            Trade setup, entry zones, and confluence will appear here
+          </span>
+        </div>
+      </div>
+
+      <!-- Confluence score breakdown -->
+      <div class="panel-hd panel-hd-inner" id="conf-hd" style="display:none">
+        <span class="panel-hd-label">CONFLUENCE BREAKDOWN</span>
+        <span class="panel-hd-sub" id="conf-score-label">—</span>
+      </div>
+      <div id="conf-breakdown" style="display:none"></div>
+
+    </div><!-- /panel-trade -->
+
+  </div><!-- /analysis-grid -->
+</div><!-- /stage-analysis -->
+</div><!-- /stage -->
+
+<!-- ══ LOADING OVERLAY ═══════════════════════════════════════ -->
 <div id="loading-overlay">
-  <div class="loading-logo">ATL ANALYZER</div>
-  <div class="loading-spinner"></div>
-  <div id="loading-msg">Initializing scanner…</div>
-  <div class="loading-dots">
-    <span></span><span></span><span></span>
-  </div>
+  <div class="loading-ring"></div>
+  <div class="loading-text">ATL ANALYZER</div>
+  <div class="loading-sub" id="loading-sub-text">INITIALISING…</div>
 </div>
 
+<!-- ══ ERROR BANNER ══════════════════════════════════════════ -->
 <div id="error-banner">
   <span id="error-text">Error</span>
 </div>
 
-<script type="module" src="app.js?v=2"></script>
+<script type="module" src="app.js"></script>
 </body>
 </html>
