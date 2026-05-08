@@ -318,17 +318,296 @@ function populateDecisionBar(analysis, signal) {
 }
 
 // ── Intel Tabs — main render ───────────────────────────────────
-// Replaces buildCardGrid. All 4 tabs populated inline, zero extra clicks.
+// Writes directly into the actual HTML panel elements in index.html
 function buildIntelTabs(analysis, signal, data) {
-  populateTabSetup(analysis, signal, data);
-  populateTabStructure(analysis, signal);
-  populateTabLevels(analysis, signal);
-  populateTabDerivatives(data, analysis, signal);
+  populateDerivativesPanel(data, analysis);
+  populateStructurePanel(analysis, signal);
+  populateTradePanel(analysis, signal, data);
+}
+
+// ════════════════════════════════════════════════════════════════
+//  DERIVATIVES PANEL — writes to #panel-deriv static elements
+// ════════════════════════════════════════════════════════════════
+function populateDerivativesPanel(data, analysis) {
+  const t   = data.ticker;
+  const fr  = t?.fundingRate || 0;
+  const frColor = fr < -0.01 ? '#00e676' : fr > 0.05 ? '#ff4444' : '#ffd54f';
+  const frExplain = fr < -0.05 ? 'Extreme negative — short squeeze risk HIGH'
+    : fr < -0.01 ? 'Negative — shorts paying longs, mild bullish signal'
+    : fr > 0.1  ? 'Very high positive — long liquidation risk elevated'
+    : fr > 0.03 ? 'Elevated positive — leverage flush risk'
+    : 'Neutral — no significant derivatives pressure';
+
+  // Funding rate
+  const set = (id, val, color) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = val;
+    if (color) el.style.color = color;
+  };
+
+  set('d-funding',       `${fr.toFixed(4)}%`, frColor);
+  set('d-funding-interp', frExplain, frColor);
+
+  // Next funding time
+  const pm = data.premIndex;
+  if (pm?.nextFundingTime) {
+    const mins = Math.round((pm.nextFundingTime - Date.now()) / 60000);
+    set('d-funding-t', `${mins}m`, '#8892a0');
+  }
+
+  // OI
+  const oiData = data.oiHistory || [];
+  const oiLen  = oiData.length;
+  if (t?.openInterest) set('d-oi', formatLarge(t.openInterest), '#e8edf2');
+  if (oiLen >= 2) {
+    const rising = oiData[oiLen - 1].oi > oiData[0].oi;
+    set('d-oi-trend', rising ? '▲ Rising' : '▼ Falling', rising ? '#00e676' : '#ff4444');
+  }
+
+  // OI spark bars
+  const spark = document.getElementById('oi-spark');
+  if (spark && oiLen > 0) {
+    const maxOI = Math.max(...oiData.map(o => o.oi));
+    const recent = oiData.slice(-24);
+    spark.innerHTML = recent.map(o => {
+      const h = Math.round((o.oi / maxOI) * 32);
+      const rising = o.oi >= (oiData[oiData.indexOf(o) - 1]?.oi || o.oi);
+      return `<div style="width:3px;height:${h}px;background:${rising ? '#00e676' : '#ff4444'};opacity:0.7;border-radius:1px"></div>`;
+    }).join('');
+  }
+
+  // Taker flow
+  const tf = data.takerFlow;
+  if (tf) {
+    set('d-taker-bias', `${tf.takerBias > 0 ? '+' : ''}${tf.takerBias.toFixed(1)}%`, tf.takerBias > 0 ? '#00e676' : '#ff4444');
+    const takerBar = document.getElementById('d-taker-bar');
+    const buyLbl   = document.getElementById('d-buy-pct');
+    const sellLbl  = document.getElementById('d-sell-pct');
+    if (takerBar) takerBar.style.width = `${(tf.buyRatio * 100).toFixed(0)}%`;
+    if (buyLbl)  buyLbl.textContent  = `BUY ${(tf.buyRatio * 100).toFixed(0)}%`;
+    if (sellLbl) sellLbl.textContent = `SELL ${(tf.sellRatio * 100).toFixed(0)}%`;
+  }
+
+  // Order book
+  const ob = analysis.obAnalysis;
+  if (ob) {
+    set('d-ob-bias', ob.bias.toUpperCase(), ob.bias === 'bullish' ? '#00e676' : ob.bias === 'bearish' ? '#ff4444' : '#ffd54f');
+    const obBar  = document.getElementById('d-ob-bar');
+    const bidLbl = document.getElementById('d-bid-pct');
+    const askLbl = document.getElementById('d-ask-pct');
+    if (obBar)  obBar.style.width  = `${(ob.bidAskRatio * 100).toFixed(0)}%`;
+    if (bidLbl) bidLbl.textContent = `BID ${(ob.bidAskRatio * 100).toFixed(0)}%`;
+    if (askLbl) askLbl.textContent = `ASK ${((1 - ob.bidAskRatio) * 100).toFixed(0)}%`;
+
+    set('d-bid-walls', ob.bidWalls.slice(0,3).map(w => `$${formatPrice(w.price)} (${w.size.toFixed(1)})`).join(' · ') || '—', '#00e676');
+    set('d-ask-walls', ob.askWalls.slice(0,3).map(w => `$${formatPrice(w.price)} (${w.size.toFixed(1)})`).join(' · ') || '—', '#ff4444');
+  }
+
+  // Mark / Index
+  if (pm) {
+    set('d-mark',   `$${formatPrice(pm.markPrice)}`,  '#e8edf2');
+    set('d-index',  `$${formatPrice(pm.indexPrice)}`, '#e8edf2');
+    set('d-spread', `${pm.spread.toFixed(4)}%`, pm.spread > 0 ? '#00e676' : '#ff4444');
+  }
+
+  // Funding history list
+  const histEl = document.getElementById('funding-history-list');
+  const hist   = data.fundingHist?.slice(-8) || [];
+  if (histEl && hist.length) {
+    histEl.innerHTML = hist.map(h => {
+      const col = h.rate < 0 ? '#00e676' : '#ff4444';
+      return `<div class="deriv-row">
+        <span class="deriv-key">${new Date(h.time * 1000).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span>
+        <span class="deriv-val" style="color:${col}">${h.rate.toFixed(4)}%</span>
+      </div>`;
+    }).join('');
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+//  STRUCTURE PANEL — writes to #panel-struct static elements
+// ════════════════════════════════════════════════════════════════
+function populateStructurePanel(analysis, signal) {
+  const set = (id, val, color) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = val;
+    if (color) el.style.color = color;
+  };
+
+  const st    = analysis.structure;
+  const htf   = analysis.htfStructure;
+  const trend = st?.trend || 'neutral';
+  const tCol  = trend === 'bull' ? '#00e676' : trend === 'bear' ? '#ff4444' : '#ffd54f';
+  const htfTrend = htf?.trend || 'neutral';
+  const htfCol   = htfTrend === 'bull' ? '#00e676' : htfTrend === 'bear' ? '#ff4444' : '#ffd54f';
+
+  // Supertrend / Trend
+  set('s-trend', trend.toUpperCase(), tCol);
+  const emas = analysis.lastEMAs;
+  const price = analysis.price;
+  const emaBias = emas && price
+    ? (price > emas.ema20 && price > emas.ema50 ? 'Above EMA20/50' : price < emas.ema20 && price < emas.ema50 ? 'Below EMA20/50' : 'Mixed EMA position')
+    : '—';
+  set('s-trend-sub', emaBias, '#8892a0');
+
+  // HTF bias
+  set('s-htf', `MTF: ${trend.toUpperCase()} · HTF: ${htfTrend.toUpperCase()}`, tCol);
+  set('s-htf-sub', htf ? `4H: ${htfTrend}` : 'HTF data unavailable', htfCol);
+
+  // BOS / CHoCH — last event
+  const events = st?.events || [];
+  const lastEv = events[events.length - 1];
+  const structEl = document.getElementById('s-struct');
+  if (structEl) {
+    if (lastEv) {
+      const cls = lastEv.type === 'CHoCH' ? 'tag-warn' : lastEv.dir === 'bull' ? 'tag-bull' : 'tag-bear';
+      structEl.innerHTML = `<span class="tag ${cls}">${lastEv.type}</span>`;
+    } else {
+      structEl.innerHTML = `<span class="tag neutral">NONE</span>`;
+    }
+  }
+  set('s-struct-sub', lastEv ? `$${formatPrice(lastEv.price)} — ${lastEv.dir === 'bull' ? 'Bullish' : 'Bearish'}` : 'No events detected', '#8892a0');
+
+  // P/D Zone
+  const pd = analysis.premDisc;
+  if (pd) {
+    set('s-zone', pd.zone.toUpperCase(), pd.zone === 'discount' ? '#00e676' : pd.zone === 'premium' ? '#ff4444' : '#ffd54f');
+    set('s-zone-sub', `${(pd.position * 100).toFixed(1)}% of range`, '#8892a0');
+  }
+
+  // Swing High / Low
+  const pivH = analysis.pivotHighs?.slice(-1)[0];
+  const pivL = analysis.pivotLows?.slice(-1)[0];
+  if (pivH) { set('s-sh', `$${formatPrice(pivH.price)}`, '#ff4444'); set('s-sh-sub', new Date(pivH.time * 1000).toLocaleDateString(), '#8892a0'); }
+  if (pivL) { set('s-sl', `$${formatPrice(pivL.price)}`, '#00e676'); set('s-sl-sub', new Date(pivL.time * 1000).toLocaleDateString(), '#8892a0'); }
+
+  // Order Blocks
+  const obEl = document.getElementById('ob-container');
+  const obs  = analysis.orderBlocks || [];
+  const freshOBs = obs.filter(o => o.state === 'fresh');
+  if (obEl) {
+    if (freshOBs.length) {
+      obEl.innerHTML = freshOBs.slice(0, 4).map(ob => `
+        <div class="ob-card ${ob.type === 'demand' ? 'ob-card-bull' : 'ob-card-bear'}">
+          <span class="tag ${ob.type === 'demand' ? 'tag-bull' : 'tag-bear'}">${ob.type.toUpperCase()}</span>
+          <span class="ob-range">$${formatPrice(ob.low)} – $${formatPrice(ob.high)}</span>
+          <span class="ob-struct">${ob.structureType}</span>
+        </div>`).join('');
+    } else {
+      obEl.innerHTML = `<div class="empty-state" style="height:40px;font-size:8px">NO FRESH OBs DETECTED</div>`;
+    }
+  }
+
+  // FVGs
+  const fvgEl  = document.getElementById('fvg-list');
+  const fvgCnt = document.getElementById('fvg-count');
+  const fvgs   = analysis.fvgs || [];
+  if (fvgCnt) fvgCnt.textContent = `${fvgs.length} ACTIVE`;
+  if (fvgEl) {
+    if (fvgs.length) {
+      fvgEl.innerHTML = fvgs.slice(-5).reverse().map(f => `
+        <div class="fvg-row ${f.dir === 'bull' ? 'fvg-bull' : 'fvg-bear'}">
+          <span class="tag ${f.dir === 'bull' ? 'tag-bull' : 'tag-bear'}">${f.dir.toUpperCase()} FVG</span>
+          <span class="fvg-range">$${formatPrice(f.bottom)} – $${formatPrice(f.top)}</span>
+          <span class="fvg-size">${f.size.toFixed(2)}%</span>
+        </div>`).join('');
+    } else {
+      fvgEl.innerHTML = `<div class="empty-state" style="height:30px;font-size:8px">NO ACTIVE FVGs</div>`;
+    }
+  }
+
+  // Key S/R Levels
+  const srEl = document.getElementById('sr-levels');
+  const sr   = analysis.srLevels || [];
+  if (srEl && sr.length) {
+    const price2 = analysis.price;
+    const sorted = [...sr].sort((a, b) => Math.abs(a.price - price2) - Math.abs(b.price - price2));
+    srEl.innerHTML = sorted.slice(0, 8).map(l => {
+      const pct  = ((l.price - price2) / price2 * 100).toFixed(2);
+      const col  = l.type === 'support' ? '#00e676' : '#ff4444';
+      return `<div class="sr-chip" style="border-color:${col}">
+        <span style="color:${col};font-size:8px">${l.type === 'support' ? 'S' : 'R'}</span>
+        <span>$${formatPrice(l.price)}</span>
+        <span style="color:#5a6470">${pct > 0 ? '+' : ''}${pct}%</span>
+      </div>`;
+    }).join('');
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+//  TRADE PANEL — writes to #panel-trade static elements
+// ════════════════════════════════════════════════════════════════
+function populateTradePanel(analysis, signal, data) {
+  // Decision strip already handled by populateDecisionBar()
+  // Populate #scenarios-wrap with full setup or no-setup notice
+  const wrap = document.getElementById('scenarios-wrap');
+  if (!wrap) return;
+
+  const s = signal?.setup;
+  if (!s) {
+    wrap.innerHTML = `
+      <div class="empty-state" style="padding:24px 16px;text-align:center">
+        <div class="empty-glyph">⏳</div>
+        <div style="color:#ffd54f;font-size:10px;margin:8px 0">NO SETUP — CONFLUENCE INSUFFICIENT</div>
+        <div style="color:#5a6470;font-size:8px">Score: ${signal?.normalizedScore || 0} · ${signal?.biasLabel || 'NEUTRAL'}<br>
+        Wait for BOS/CHoCH + OB retest + FVG fill</div>
+      </div>
+      ${buildConfluenceBars(signal)}`;
+    return;
+  }
+
+  const isLong  = s.direction === 'LONG';
+  const dirColor = isLong ? '#00e676' : '#ff4444';
+
+  wrap.innerHTML = `
+    <div class="setup-direction-bar" style="background:${isLong ? 'rgba(0,230,118,0.06)' : 'rgba(255,68,68,0.06)'};border-left:3px solid ${dirColor};padding:10px 14px;margin-bottom:10px;border-radius:4px">
+      <span style="color:${dirColor};font-family:'Syne',sans-serif;font-weight:700;font-size:13px">${isLong ? '⬆ LONG' : '⬇ SHORT'}</span>
+      <span style="float:right;color:${signal.biasColor};font-size:11px">Score: ${signal.normalizedScore > 0 ? '+' : ''}${signal.normalizedScore}</span>
+    </div>
+    <div class="setup-levels">
+      ${[
+        { label:'ENTRY',    price: s.entry, reason: s.entryReason, color: dirColor },
+        { label:'STOP LOSS',price: s.sl,    reason: s.slReason,    color: '#ff4444' },
+        { label:`TP1 — ${s.rr1}R`, price: s.tp1, reason: s.tp1Reason, color: '#00e676' },
+        { label:`TP2 — ${s.rr2}R`, price: s.tp2, reason: s.tp2Reason, color: '#00e676' },
+        { label:`TP3 — ${s.rr3}R`, price: s.tp3, reason: s.tp3Reason, color: '#00e676' },
+      ].map(lv => `
+        <div class="setup-level" style="border-left:2px solid ${lv.color}20;padding:8px 10px;margin-bottom:6px;background:rgba(255,255,255,0.02);border-radius:3px">
+          <div style="font-size:8px;color:#5a6470;letter-spacing:.1em">${lv.label}</div>
+          <div style="font-size:14px;color:${lv.color};font-family:'JetBrains Mono',monospace;font-weight:600">$${formatPrice(lv.price)}</div>
+          <div style="font-size:9px;color:#8892a0;margin-top:2px">${lv.reason}</div>
+        </div>`).join('')}
+    </div>
+    <div style="padding:10px;background:rgba(255,68,68,0.05);border:1px solid rgba(255,68,68,0.15);border-radius:4px;margin:10px 0">
+      <div style="font-size:8px;color:#ff9090;letter-spacing:.1em;margin-bottom:4px">⚠ INVALIDATION</div>
+      <div style="font-size:9px;color:#8892a0">${s.invalidationReason}</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+      <div style="padding:8px;background:rgba(0,230,118,0.04);border:1px solid rgba(0,230,118,0.1);border-radius:4px">
+        <div style="font-size:8px;color:#00e676;letter-spacing:.1em;margin-bottom:4px">BULL SCENARIO</div>
+        <div style="font-size:9px;color:#8892a0">${s.bullScenario}</div>
+      </div>
+      <div style="padding:8px;background:rgba(255,68,68,0.04);border:1px solid rgba(255,68,68,0.1);border-radius:4px">
+        <div style="font-size:8px;color:#ff4444;letter-spacing:.1em;margin-bottom:4px">BEAR SCENARIO</div>
+        <div style="font-size:9px;color:#8892a0">${s.bearScenario}</div>
+      </div>
+    </div>
+    ${buildConfluenceBars(signal)}`;
+
+  // Show confluence breakdown section
+  const confHd = document.getElementById('conf-hd');
+  const confBd = document.getElementById('conf-breakdown');
+  if (confHd) confHd.style.display = '';
+  if (confBd) {
+    confBd.style.display = '';
+    confBd.innerHTML = buildConfluenceBars(signal);
+  }
 }
 
 // ────────────────────────────────────────────────────────────────
-// TAB 1 · TRADE SETUP
-// Entry / SL / TPs + confluence bars + scenarios
+// TAB 1 · TRADE SETUP (legacy — kept but no longer called)
 // ────────────────────────────────────────────────────────────────
 function populateTabSetup(analysis, signal, data) {
   const pane = dom.tabSetup();
