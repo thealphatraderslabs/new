@@ -129,6 +129,7 @@ async function analyze(symbol, tf = currentTF) {
   currentTF     = tf;
 
   setLoading(true);
+  window.__atlSetStatus?.('loading');
 
   try {
     rawData  = await fetchAllData(symbol, tf);
@@ -149,10 +150,12 @@ async function analyze(symbol, tf = currentTF) {
     populateDecisionBar(analysis, signal);
     buildIntelTabs(analysis, signal, rawData);
     updateLastUpdated();
+    window.__atlSetStatus?.('live');
 
   } catch (err) {
     console.error(err);
     showError(err.message || 'Failed to fetch data. Check the symbol and try again.');
+    window.__atlSetStatus?.('ready');
   } finally {
     setLoading(false);
   }
@@ -1332,6 +1335,28 @@ function boot() {
   document.getElementById('mbr-analysis')?.addEventListener('click', () => {
     document.getElementById('stage-analysis')?.scrollIntoView({ behavior: 'smooth' });
   });
+
+  // UTC Clock
+  function tickClock() {
+    const el = document.getElementById('atl-clock');
+    if (!el) return;
+    const now = new Date();
+    const hh  = String(now.getUTCHours()).padStart(2, '0');
+    const mm  = String(now.getUTCMinutes()).padStart(2, '0');
+    const ss  = String(now.getUTCSeconds()).padStart(2, '0');
+    el.textContent = `${hh}:${mm}:${ss} UTC`;
+  }
+  tickClock();
+  setInterval(tickClock, 1000);
+
+  // Status dot pulse — goes LIVE on first successful analysis
+  function setStatus(state) {
+    const dot  = document.getElementById('global-status-dot');
+    const text = document.getElementById('global-status-text');
+    if (dot)  dot.className  = `status-dot ${state === 'live' ? 'online' : state === 'loading' ? 'scanning' : ''}`;
+    if (text) text.textContent = state === 'live' ? 'LIVE' : state === 'loading' ? 'SCANNING' : 'READY';
+  }
+  window.__atlSetStatus = setStatus;
 
   // Expose for console debugging
   window.__atl = { analyze };
