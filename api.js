@@ -19,6 +19,7 @@ const TF_MAP = {
   '1h':  { bybit: '60',  fapi: '1h'  },
   '4h':  { bybit: '240', fapi: '4h'  },
   '1d':  { bybit: 'D',   fapi: '1d'  },
+  '1w':  { bybit: 'W',   fapi: '1w'  },
 };
 
 async function fetchJSON(url) {
@@ -135,7 +136,7 @@ async function fetchOrderBook(symbol, depth = 50) {
 // Primary: Bybit /open-interest (historical, no CORS) — unique advantage
 async function fetchOIHistory(symbol, interval = '1h', limit = 48) {
   const sym = symbol.toUpperCase() + 'USDT';
-  const bybitPeriod = { '5m':'5min','15m':'15min','1h':'1h','4h':'4h','1d':'1d' };
+  const bybitPeriod = { '5m':'5min','15m':'15min','1h':'1h','4h':'4h','1d':'1d','1w':'1w' };
   const period = bybitPeriod[interval] || '1h';
   try {
     const url = `${API.BYBIT}/open-interest?category=linear&symbol=${sym}&intervalTime=${period}&limit=${limit}`;
