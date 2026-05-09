@@ -230,19 +230,19 @@ function renderBiasHero(signal) {
   const confEl  = document.getElementById('h-bias-conf');
 
   if (labelEl) {
-    labelEl.textContent = 'OVERALL BIAS';
-    labelEl.style.color = '#5a6470';
-    labelEl.style.fontSize = '7px';
-    labelEl.style.fontFamily = 'var(--font-mono)';
-    labelEl.style.letterSpacing = '0.14em';
+    labelEl.textContent = scoreStr;
+    labelEl.style.color = color;
+    labelEl.style.fontSize = '18px';
+    labelEl.style.fontFamily = 'var(--font-head)';
+    labelEl.style.fontWeight = '800';
+    labelEl.style.letterSpacing = '0.05em';
   }
   if (confEl) {
-    confEl.textContent = scoreStr;
-    confEl.style.color = color;
-    confEl.style.fontSize = '18px';
-    confEl.style.fontFamily = 'var(--font-head)';
-    confEl.style.fontWeight = '800';
-    confEl.style.letterSpacing = '0.05em';
+    confEl.textContent = label;
+    confEl.style.color = '#5a6470';
+    confEl.style.fontSize = '7px';
+    confEl.style.fontFamily = 'var(--font-mono)';
+    confEl.style.letterSpacing = '0.14em';
   }
 }
 
