@@ -212,16 +212,124 @@ function renderUI(symbol, data, analysis, signal) {
     c24.className   = `ph-change ${chg >= 0 ? 'pos' : 'neg'}`;
   }
 
-  // Bias block — enlarged label + score sub-line
-  if (bc && signal) {
-    bc.textContent = signal.biasLabel;
-    bc.style.color = signal.biasColor;
-    bc.className   = `ph-bias-val ${signal.biasLabel?.toLowerCase().includes('long') ? 'bullish' : signal.biasLabel?.toLowerCase().includes('short') ? 'bearish' : 'neutral'}`;
-  }
-  if (bconf && signal) {
-    bconf.textContent = `Score: ${signal.normalizedScore > 0 ? '+' : ''}${signal.normalizedScore}`;
-  }
+  // Bias block — animated SVG hero
+  if (signal) renderBiasHero(signal);
   renderScoreRing(signal?.normalizedScore || 0, signal?.biasColor || '#ffd54f');
+}
+
+// ── Animated Bias Hero (top-strip right block) ─────────────────
+function renderBiasHero(signal) {
+  const wrap = document.getElementById('ph-bias-wrap');
+  if (!wrap) return;
+
+  const label    = signal.biasLabel || '—';
+  const score    = signal.normalizedScore || 0;
+  const scoreStr = `${score > 0 ? '+' : ''}${score}`;
+  const isLong   = label.toLowerCase().includes('long');
+  const isShort  = label.toLowerCase().includes('short');
+  const color    = isLong ? '#00e676' : isShort ? '#ff4444' : '#ffd54f';
+  const uid      = isLong ? 'L' : isShort ? 'S' : 'N';
+
+  wrap.innerHTML = `
+    <svg xmlns="http://www.w3.org/2000/svg"
+         viewBox="0 0 200 48" width="100%" height="100%"
+         preserveAspectRatio="xMidYMid meet"
+         style="display:block">
+      <defs>
+        <linearGradient id="sw${uid}" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%"   stop-color="${color}" stop-opacity="0"/>
+          <stop offset="45%"  stop-color="${color}" stop-opacity="0.15"/>
+          <stop offset="55%"  stop-color="${color}" stop-opacity="0.15"/>
+          <stop offset="100%" stop-color="${color}" stop-opacity="0"/>
+        </linearGradient>
+        <radialGradient id="gl${uid}" cx="50%" cy="50%" r="50%">
+          <stop offset="0%"   stop-color="${color}" stop-opacity="0.2"/>
+          <stop offset="100%" stop-color="${color}" stop-opacity="0"/>
+        </radialGradient>
+        <clipPath id="cc${uid}"><rect width="200" height="48"/></clipPath>
+      </defs>
+
+      <g clip-path="url(#cc${uid})">
+        <!-- bg tint -->
+        <rect width="200" height="48" fill="${color}" fill-opacity="0.04"/>
+
+        <!-- faint grid -->
+        <line x1="0"   y1="16" x2="200" y2="16" stroke="${color}" stroke-opacity="0.06" stroke-width="1"/>
+        <line x1="0"   y1="32" x2="200" y2="32" stroke="${color}" stroke-opacity="0.06" stroke-width="1"/>
+        <line x1="50"  y1="0"  x2="50"  y2="48" stroke="${color}" stroke-opacity="0.06" stroke-width="1"/>
+        <line x1="100" y1="0"  x2="100" y2="48" stroke="${color}" stroke-opacity="0.06" stroke-width="1"/>
+        <line x1="150" y1="0"  x2="150" y2="48" stroke="${color}" stroke-opacity="0.06" stroke-width="1"/>
+
+        <!-- scan sweep -->
+        <rect x="-200" y="0" width="200" height="48" fill="url(#sw${uid})">
+          <animateTransform attributeName="transform" type="translate"
+            from="-200,0" to="400,0" dur="3s" repeatCount="indefinite"/>
+        </rect>
+
+        <!-- pulsing top border -->
+        <rect x="0" y="0" width="200" height="1.5" fill="${color}" opacity="0">
+          <animate attributeName="opacity" values="0;0.9;0.2;0.9;0" dur="2.4s" repeatCount="indefinite"/>
+        </rect>
+
+        <!-- corner ticks -->
+        <polyline points="0,8 0,0 8,0"     fill="none" stroke="${color}" stroke-width="1.2" opacity="0.6"/>
+        <polyline points="192,0 200,0 200,8" fill="none" stroke="${color}" stroke-width="1.2" opacity="0.6"/>
+        <polyline points="0,40 0,48 8,48"    fill="none" stroke="${color}" stroke-width="1.2" opacity="0.6"/>
+        <polyline points="192,48 200,48 200,40" fill="none" stroke="${color}" stroke-width="1.2" opacity="0.6"/>
+
+        <!-- mini directional bars (left) -->
+        ${isLong ? `
+          <rect x="10" y="30" width="4" height="10" fill="${color}" opacity="0.45" rx="0.5">
+            <animate attributeName="height" values="10;14;10" dur="1.8s" repeatCount="indefinite"/>
+            <animate attributeName="y"      values="30;26;30" dur="1.8s" repeatCount="indefinite"/>
+          </rect>
+          <rect x="16" y="24" width="4" height="16" fill="${color}" opacity="0.65" rx="0.5">
+            <animate attributeName="height" values="16;20;16" dur="1.8s" begin="0.2s" repeatCount="indefinite"/>
+            <animate attributeName="y"      values="24;20;24" dur="1.8s" begin="0.2s" repeatCount="indefinite"/>
+          </rect>
+          <rect x="22" y="16" width="4" height="24" fill="${color}" opacity="0.9"  rx="0.5">
+            <animate attributeName="height" values="24;30;24" dur="1.8s" begin="0.4s" repeatCount="indefinite"/>
+            <animate attributeName="y"      values="16;10;16" dur="1.8s" begin="0.4s" repeatCount="indefinite"/>
+          </rect>
+        ` : isShort ? `
+          <rect x="10" y="8"  width="4" height="24" fill="${color}" opacity="0.9"  rx="0.5">
+            <animate attributeName="height" values="24;30;24" dur="1.8s" repeatCount="indefinite"/>
+          </rect>
+          <rect x="16" y="8"  width="4" height="16" fill="${color}" opacity="0.65" rx="0.5">
+            <animate attributeName="height" values="16;20;16" dur="1.8s" begin="0.2s" repeatCount="indefinite"/>
+          </rect>
+          <rect x="22" y="8"  width="4" height="10" fill="${color}" opacity="0.45" rx="0.5">
+            <animate attributeName="height" values="10;14;10" dur="1.8s" begin="0.4s" repeatCount="indefinite"/>
+          </rect>
+        ` : `
+          <rect x="10" y="16" width="4" height="16" fill="${color}" opacity="0.6" rx="0.5"/>
+          <rect x="16" y="12" width="4" height="24" fill="${color}" opacity="0.8" rx="0.5"/>
+          <rect x="22" y="16" width="4" height="16" fill="${color}" opacity="0.6" rx="0.5"/>
+        `}
+
+        <!-- OVERALL BIAS label -->
+        <text x="32" y="15"
+              font-family="'JetBrains Mono', monospace" font-weight="300"
+              font-size="6.5" fill="#5a6470" letter-spacing="1.5">
+          OVERALL BIAS
+        </text>
+
+        <!-- Bias label — main text -->
+        <text x="32" y="31"
+              font-family="Syne, sans-serif" font-weight="800"
+              font-size="14" fill="${color}" letter-spacing="1">
+          ${label.toUpperCase()}
+          <animate attributeName="opacity" values="1;0.8;1" dur="3s" repeatCount="indefinite"/>
+        </text>
+
+        <!-- Score -->
+        <text x="32" y="43"
+              font-family="'JetBrains Mono', monospace" font-weight="400"
+              font-size="7.5" fill="${color}" fill-opacity="0.7" letter-spacing="1">
+          Score: ${scoreStr}
+        </text>
+      </g>
+    </svg>`;
 }
 
 function renderScoreRing(score, color) {
@@ -705,144 +813,10 @@ function populateTradePanel(analysis, signal, data) {
   const scoreStr = `${signal.normalizedScore > 0 ? '+' : ''}${signal.normalizedScore}`;
 
   wrap.innerHTML = `
-    <!-- ── Animated Bias Hero ─────────────────────────────── -->
-    <div style="position:relative;overflow:hidden;border-bottom:1px solid var(--border)">
-      <svg id="bias-hero-svg" xmlns="http://www.w3.org/2000/svg"
-           viewBox="0 0 320 88" width="100%" height="88"
-           style="display:block;background:${isLong ? 'rgba(0,230,118,0.04)' : 'rgba(255,68,68,0.04)'}">
-        <defs>
-          <!-- Animated grain noise -->
-          <filter id="grain" x="0%" y="0%" width="100%" height="100%">
-            <feTurbulence type="fractalNoise" baseFrequency="0.75" numOctaves="4" seed="2" result="noise">
-              <animate attributeName="seed" values="2;8;15;3;2" dur="4s" repeatCount="indefinite"/>
-            </feTurbulence>
-            <feColorMatrix type="saturate" values="0" in="noise" result="grayNoise"/>
-            <feBlend in="SourceGraphic" in2="grayNoise" mode="overlay" result="blended"/>
-            <feComposite in="blended" in2="SourceGraphic" operator="in"/>
-          </filter>
-
-          <!-- Sweep gradient for the scan line -->
-          <linearGradient id="sweep-${isLong ? 'long' : 'short'}" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%"   stop-color="${dirColor}" stop-opacity="0"/>
-            <stop offset="40%"  stop-color="${dirColor}" stop-opacity="0.18"/>
-            <stop offset="60%"  stop-color="${dirColor}" stop-opacity="0.18"/>
-            <stop offset="100%" stop-color="${dirColor}" stop-opacity="0"/>
-          </linearGradient>
-
-          <!-- Radial glow behind icon -->
-          <radialGradient id="icon-glow" cx="50%" cy="50%" r="50%">
-            <stop offset="0%"   stop-color="${dirColor}" stop-opacity="0.25"/>
-            <stop offset="100%" stop-color="${dirColor}" stop-opacity="0"/>
-          </radialGradient>
-
-          <!-- Clip for the entire card -->
-          <clipPath id="card-clip"><rect width="320" height="88"/></clipPath>
-        </defs>
-
-        <g clip-path="url(#card-clip)">
-
-          <!-- Grid lines -->
-          ${Array.from({length:9}, (_,i) => `<line x1="${(i+1)*32}" y1="0" x2="${(i+1)*32}" y2="88" stroke="${dirColor}" stroke-opacity="0.06" stroke-width="1"/>`).join('')}
-          ${Array.from({length:3}, (_,i) => `<line x1="0" y1="${(i+1)*22}" x2="320" y2="${(i+1)*22}" stroke="${dirColor}" stroke-opacity="0.06" stroke-width="1"/>`).join('')}
-
-          <!-- Animated scan sweep -->
-          <rect x="-320" y="0" width="320" height="88" fill="url(#sweep-${isLong ? 'long' : 'short'})" opacity="0.7">
-            <animateTransform attributeName="transform" type="translate" from="-320,0" to="640,0" dur="3.2s" repeatCount="indefinite"/>
-          </rect>
-
-          <!-- Pulsing border top -->
-          <rect x="0" y="0" width="320" height="2" fill="${dirColor}" opacity="0">
-            <animate attributeName="opacity" values="0;0.9;0.3;0.9;0" dur="2.4s" repeatCount="indefinite"/>
-          </rect>
-
-          <!-- Icon glow blob -->
-          <ellipse cx="44" cy="44" rx="32" ry="32" fill="url(#icon-glow)">
-            <animate attributeName="rx" values="28;36;28" dur="2.8s" repeatCount="indefinite"/>
-            <animate attributeName="ry" values="28;36;28" dur="2.8s" repeatCount="indefinite"/>
-          </ellipse>
-
-          <!-- Directional arrow icon — animated -->
-          ${isLong ? `
-            <!-- Long: arrow pointing up-right with rising bars -->
-            <g transform="translate(18,22)">
-              <!-- Rising bars -->
-              <rect x="0"  y="28" width="6" height="12" fill="${dirColor}" opacity="0.5" rx="1">
-                <animate attributeName="height" values="12;16;12" dur="1.8s" repeatCount="indefinite"/>
-                <animate attributeName="y"      values="28;24;28" dur="1.8s" repeatCount="indefinite"/>
-              </rect>
-              <rect x="9"  y="20" width="6" height="20" fill="${dirColor}" opacity="0.7" rx="1">
-                <animate attributeName="height" values="20;26;20" dur="1.8s" begin="0.2s" repeatCount="indefinite"/>
-                <animate attributeName="y"      values="20;14;20" dur="1.8s" begin="0.2s" repeatCount="indefinite"/>
-              </rect>
-              <rect x="18" y="10" width="6" height="30" fill="${dirColor}" opacity="1"   rx="1">
-                <animate attributeName="height" values="30;38;30" dur="1.8s" begin="0.4s" repeatCount="indefinite"/>
-                <animate attributeName="y"      values="10;2;10"  dur="1.8s" begin="0.4s" repeatCount="indefinite"/>
-              </rect>
-              <!-- Arrow head -->
-              <polyline points="2,18 14,6 26,6 26,18" fill="none" stroke="${dirColor}" stroke-width="2" stroke-linejoin="round" opacity="0.9"/>
-              <polyline points="19,6 26,6 26,13"       fill="none" stroke="${dirColor}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </g>
-          ` : `
-            <!-- Short: arrow pointing down-right with falling bars -->
-            <g transform="translate(18,18)">
-              <rect x="0"  y="0"  width="6" height="30" fill="${dirColor}" opacity="1"   rx="1">
-                <animate attributeName="height" values="30;38;30" dur="1.8s" repeatCount="indefinite"/>
-              </rect>
-              <rect x="9"  y="0"  width="6" height="20" fill="${dirColor}" opacity="0.7" rx="1">
-                <animate attributeName="height" values="20;26;20" dur="1.8s" begin="0.2s" repeatCount="indefinite"/>
-              </rect>
-              <rect x="18" y="0"  width="6" height="12" fill="${dirColor}" opacity="0.5" rx="1">
-                <animate attributeName="height" values="12;16;12" dur="1.8s" begin="0.4s" repeatCount="indefinite"/>
-              </rect>
-              <!-- Arrow head pointing down -->
-              <polyline points="2,22 14,34 26,34 26,22" fill="none" stroke="${dirColor}" stroke-width="2" stroke-linejoin="round" opacity="0.9"/>
-              <polyline points="19,34 26,34 26,27"       fill="none" stroke="${dirColor}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </g>
-          `}
-
-          <!-- Bias label — big -->
-          <text x="74" y="36"
-                font-family="Syne, sans-serif" font-weight="800"
-                font-size="22" fill="${dirColor}" letter-spacing="2"
-                opacity="1">
-            ${signal.biasLabel.toUpperCase()}
-            <animate attributeName="opacity" values="1;0.82;1" dur="3s" repeatCount="indefinite"/>
-          </text>
-
-          <!-- OVERALL BIAS sub-label -->
-          <text x="75" y="52"
-                font-family="'JetBrains Mono', monospace" font-weight="300"
-                font-size="8" fill="#5a6470" letter-spacing="2">
-            OVERALL BIAS
-          </text>
-
-          <!-- Score badge — right side -->
-          <rect x="238" y="22" width="68" height="44" rx="4"
-                fill="${dirColor}" fill-opacity="0.08"
-                stroke="${dirColor}" stroke-opacity="0.2" stroke-width="1"/>
-          <text x="272" y="43"
-                font-family="Syne, sans-serif" font-weight="800"
-                font-size="20" fill="${dirColor}" text-anchor="middle"
-                letter-spacing="1">
-            ${scoreStr}
-          </text>
-          <text x="272" y="57"
-                font-family="'JetBrains Mono', monospace" font-weight="300"
-                font-size="7.5" fill="#5a6470" text-anchor="middle" letter-spacing="2">
-            SCORE
-          </text>
-
-          <!-- Corner tick marks — techy feel -->
-          <polyline points="0,12 0,0 12,0"     fill="none" stroke="${dirColor}" stroke-width="1.5" opacity="0.5"/>
-          <polyline points="308,0 320,0 320,12" fill="none" stroke="${dirColor}" stroke-width="1.5" opacity="0.5"/>
-          <polyline points="0,76 0,88 12,88"    fill="none" stroke="${dirColor}" stroke-width="1.5" opacity="0.5"/>
-          <polyline points="308,88 320,88 320,76" fill="none" stroke="${dirColor}" stroke-width="1.5" opacity="0.5"/>
-
-          <!-- Noise overlay -->
-          <rect width="320" height="88" fill="rgba(255,255,255,0.015)" filter="url(#grain)"/>
-
-        </g>
-      </svg>
+    <!-- Direction + score header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:${isLong ? 'rgba(0,230,118,0.05)' : 'rgba(255,68,68,0.05)'};border-bottom:1px solid var(--border)">
+      <span style="color:${dirColor};font-family:var(--font-head);font-weight:700;font-size:14px;letter-spacing:0.1em">${isLong ? '⬆ LONG' : '⬇ SHORT'}</span>
+      <span style="color:${signal.biasColor};font-family:var(--font-mono);font-size:11px">Score: ${scoreStr}</span>
     </div>
 
     <!-- Entry card -->
