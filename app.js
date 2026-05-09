@@ -308,25 +308,25 @@ function renderBiasHero(signal) {
         `}
 
         <!-- OVERALL BIAS label -->
-        <text x="32" y="15"
+        <text x="36" y="19"
               font-family="'JetBrains Mono', monospace" font-weight="300"
-              font-size="6.5" fill="#5a6470" letter-spacing="1.5">
+              font-size="7" fill="#5a6470" letter-spacing="1.8">
           OVERALL BIAS
         </text>
 
-        <!-- Bias label — main text -->
-        <text x="32" y="31"
+        <!-- Score -->
+        <text x="36" y="35"
               font-family="Syne, sans-serif" font-weight="800"
-              font-size="14" fill="${color}" letter-spacing="1">
-          ${label.toUpperCase()}
-          <animate attributeName="opacity" values="1;0.8;1" dur="3s" repeatCount="indefinite"/>
+              font-size="16" fill="${color}" letter-spacing="1">
+          ${scoreStr}
+          <animate attributeName="opacity" values="1;0.75;1" dur="3s" repeatCount="indefinite"/>
         </text>
 
-        <!-- Score -->
-        <text x="32" y="43"
-              font-family="'JetBrains Mono', monospace" font-weight="400"
-              font-size="7.5" fill="${color}" fill-opacity="0.7" letter-spacing="1">
-          Score: ${scoreStr}
+        <!-- SCORE sub-label -->
+        <text x="36" y="44"
+              font-family="'JetBrains Mono', monospace" font-weight="300"
+              font-size="6.5" fill="#5a6470" letter-spacing="1.5">
+          SCORE
         </text>
       </g>
     </svg>`;
