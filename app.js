@@ -1446,52 +1446,6 @@ function boot() {
 
   switchMobilePanel('struct');
 
-  // ── Mobile panel tab switching ─────────────────────────────
-  // Maps data-panel value → actual panel element id
-  const PANEL_MAP = {
-    struct: null,          // chart/structure — always visible, just scroll to top
-    deriv:  'panel-deriv',
-    trade:  'panel-trade',
-  };
-
-  function switchMobilePanel(target) {
-    // Update button active state
-    document.querySelectorAll('.mpt-btn').forEach(b => {
-      b.classList.toggle('active', b.dataset.panel === target);
-    });
-
-    // Toggle panel visibility
-    Object.entries(PANEL_MAP).forEach(([key, id]) => {
-      if (!id) return; // struct panel is always in flow
-      const el = document.getElementById(id);
-      if (!el) return;
-      if (key === target) {
-        el.classList.add('mobile-active');
-        // Scroll the panel into view smoothly
-        setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
-      } else {
-        el.classList.remove('mobile-active');
-      }
-    });
-
-    // If switching back to chart/struct, scroll to top of analysis stage
-    if (target === 'struct') {
-      document.getElementById('stage-analysis')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  }
-
-  document.querySelectorAll('.mpt-btn').forEach(btn => {
-    btn.addEventListener('click', () => switchMobilePanel(btn.dataset.panel));
-    // Explicit touch handler for iOS tap reliability
-    btn.addEventListener('touchend', e => {
-      e.preventDefault();
-      switchMobilePanel(btn.dataset.panel);
-    }, { passive: false });
-  });
-
-  // Set initial mobile state — deriv + trade hidden, struct shown
-  switchMobilePanel('struct');
-
   // UTC Clock
   function tickClock() {
     const el = document.getElementById('atl-clock');
