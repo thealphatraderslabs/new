@@ -511,6 +511,55 @@ body {
 .liq-bar-fill.short { background: var(--green); }
 .liq-val { font-size: 8px; color: var(--sub); width: 38px; text-align: right; }
 
+/* ── EST. LIQ. CLUSTERS — left panel ─────────────────────────
+   Compact bar-row layout matching the target design.
+   SHORT liqs above price (red), LONG liqs below (green).
+   Bar width scales to proximity — closer = wider bar.
+──────────────────────────────────────────────────────────── */
+#liq-container { padding: 5px 0 6px; }
+
+.liq-cluster-note {
+  font-size: 7px; color: var(--muted);
+  letter-spacing: 0.1em; text-transform: uppercase;
+  padding: 0 10px 4px;
+  font-style: italic;
+}
+.liq-cluster-row {
+  display: flex; align-items: center;
+  gap: 5px; padding: 3px 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.liq-cluster-row:last-child { border-bottom: none; }
+
+.liq-cluster-label {
+  font-size: 8px; font-family: var(--font-mono);
+  color: var(--sub); width: 30px; flex-shrink: 0;
+  letter-spacing: 0.06em;
+}
+.liq-cluster-bar-wrap {
+  flex: 1; height: 4px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 2px; overflow: hidden;
+}
+.liq-cluster-bar {
+  height: 100%; border-radius: 2px;
+  transition: width 0.4s ease;
+}
+.liq-cluster-pct {
+  font-size: 8px; font-family: var(--font-mono);
+  width: 38px; text-align: right; flex-shrink: 0;
+  letter-spacing: 0.04em;
+}
+.liq-cluster-side {
+  font-size: 7px; letter-spacing: 0.1em;
+  padding: 1px 4px; flex-shrink: 0;
+  font-weight: 600;
+}
+.liq-cluster-divider {
+  height: 1px; background: var(--border2);
+  margin: 3px 10px;
+}
+
 /* Funding history list */
 #funding-history-list { padding: 3px 10px; }
 .fh-row {
