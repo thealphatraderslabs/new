@@ -294,29 +294,33 @@ body {
   display: flex;
   align-items: stretch;
   flex: 1;
+  min-width: 0; /* prevent blowing past flex parent */
   overflow: hidden;
 }
 
-/* Symbol + price + change block */
+/* Symbol + price + change block
+   Fixed width so it never crowds the stat chips */
 .ph-main {
-  padding: 6px 14px;
+  padding: 4px 12px;
   border-right: 1px solid var(--border);
   display: flex; flex-direction: column;
   justify-content: center;
-  min-width: 150px; flex-shrink: 0;
+  width: 160px; flex-shrink: 0;
 }
 .ph-ticker {
-  font-size: 8px; color: var(--muted);
+  font-size: 7px; color: var(--muted);
   letter-spacing: 0.18em; margin-bottom: 1px;
-  text-transform: uppercase;
+  text-transform: uppercase; white-space: nowrap;
 }
+/* Reduced from 20px → 16px so wide prices don't overflow */
 .ph-price {
   font-family: var(--font-head);
-  font-weight: 800; font-size: 20px;
-  color: var(--text); letter-spacing: -0.01em; line-height: 1.1;
+  font-weight: 800; font-size: 16px;
+  color: var(--text); letter-spacing: -0.01em; line-height: 1.15;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .ph-change {
-  font-size: 10px; margin-top: 1px;
+  font-size: 9px; margin-top: 1px;
   font-family: var(--font-mono);
 }
 .ph-change.pos     { color: var(--green); }
@@ -326,22 +330,23 @@ body {
 .ph-change.up   { color: var(--green); }
 .ph-change.down { color: var(--red); }
 
-/* 8 stat chips inline */
+/* 8 stat chips inline — fill remaining space evenly */
 .ph-stats {
   display: flex; flex: 1;
+  min-width: 0;
   overflow: hidden;
 }
 .ph-stat {
   display: flex; flex-direction: column;
   justify-content: center;
-  padding: 0 10px;
+  padding: 0 8px;
   border-right: 1px solid var(--border);
-  min-width: 80px; flex: 1;
+  min-width: 0; flex: 1; /* shrink equally, never overflow */
 }
 .ph-stat-label {
   font-size: 7px; color: var(--muted);
-  text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 2px;
-  white-space: nowrap;
+  text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .ph-stat-val {
   font-size: 10px; font-weight: 500; color: var(--text);
@@ -351,24 +356,24 @@ body {
 .ph-stat-val.down { color: var(--red); }
 .ph-stat-val.warn { color: var(--gold); }
 
-/* OVERALL BIAS block — pushed to far right */
+/* OVERALL BIAS block — fixed right anchor, distinct background */
 .ph-bias {
-  padding: 6px 18px;
+  padding: 0 16px;
   display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
+  align-items: flex-end; justify-content: center;
   border-left: 1px solid var(--border);
-  min-width: 160px; flex-shrink: 0;
+  width: 150px; flex-shrink: 0;
   gap: 1px;
-  background: rgba(0,0,0,0.15);
+  background: var(--bg3);
+  text-align: right;
 }
 .ph-bias-label {
   font-size: 7px; color: var(--muted);
   letter-spacing: 0.14em; text-transform: uppercase;
 }
-/* CHANGE: 12px → 18px, bold, commanding */
 .ph-bias-val {
   font-family: var(--font-head);
-  font-weight: 800; font-size: 18px; letter-spacing: 0.08em;
+  font-weight: 800; font-size: 16px; letter-spacing: 0.06em;
   white-space: nowrap;
 }
 .ph-bias-val.bullish { color: var(--green); }
@@ -376,8 +381,8 @@ body {
 .ph-bias-val.neutral { color: var(--gold); }
 /* score sub-label */
 .ph-bias-conf {
-  font-size: 9px; color: var(--muted);
-  text-align: center; font-family: var(--font-mono);
+  font-size: 8px; color: var(--muted);
+  font-family: var(--font-mono);
   letter-spacing: 0.06em;
 }
 
