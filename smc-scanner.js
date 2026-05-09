@@ -502,7 +502,7 @@ async function runScan({ exchange, tf, onProgress, onResult, onDone, onError }) 
 
       for (const r of batch_results) {
         done++;
-        if (r && r.score >= 4) {
+        if (r && r.score >= 6) {
           results.push(r);
           onResult?.(r);
         }
@@ -536,7 +536,7 @@ function renderHeatmap(container, results, tf) {
     container.innerHTML = `
       <div class="smc-empty">
         <div class="smc-empty-glyph">◎</div>
-        <div>No coins scored 4+ gates on ${tf.toUpperCase()}</div>
+        <div>No coins scored 6+ gates on ${tf.toUpperCase()}</div>
         <div style="font-size:9px;color:var(--muted);margin-top:6px">Try a different timeframe or exchange</div>
       </div>`;
     return;
