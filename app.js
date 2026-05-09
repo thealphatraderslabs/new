@@ -232,8 +232,9 @@ function renderBiasHero(signal) {
 
   wrap.innerHTML = `
     <svg xmlns="http://www.w3.org/2000/svg"
-         viewBox="0 0 110 52" width="100%" height="100%"
-         preserveAspectRatio="xMidYMid meet" style="display:block">
+         viewBox="0 0 110 52" width="110" height="52"
+         preserveAspectRatio="xMidYMid meet"
+         style="display:block;flex-shrink:0;overflow:hidden;max-width:110px">
       <defs>
         <linearGradient id="sw${uid}" x1="0" y1="0" x2="1" y2="0">
           <stop offset="0%"   stop-color="${color}" stop-opacity="0"/>
