@@ -1376,13 +1376,22 @@ body {
 
 /* ── Controls strip ─────────────────────────── */
 #smc-controls {
-  display: flex; align-items: center;
+  display: flex; align-items: flex-start;
+  flex-direction: column;
   gap: 0;
-  height: 44px;
+  height: auto;
   background: var(--bg2);
   border-bottom: 1px solid var(--border);
-  padding: 0 16px;
+  padding: 8px 16px;
   flex-shrink: 0;
+}
+.smc-ctrl-row {
+  display: flex; align-items: center; width: 100%;
+}
+.smc-ctrl-row--toggles { flex-wrap: wrap; gap: 0; }
+.smc-ctrl-row--actions { gap: 8px; padding-top: 8px; flex-wrap: wrap; }
+#smc-scan-btn, #smc-common-scan-btn, #smc-abort-btn {
+  flex: 1; justify-content: center; height: 34px; border-radius: 2px;
 }
 .smc-ctrl-label {
   font-size: 7px; color: var(--muted);
@@ -1667,11 +1676,6 @@ body {
 
 /* ── Responsive ─────────────────────────────── */
 @media (max-width: 768px) {
-  #smc-controls {
-    flex-wrap: wrap;
-    height: auto; padding: 8px 12px; gap: 8px;
-  }
-  .smc-ctrl-sep { display: none; }
   .smc-grid { grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); }
   .smc-hover-card { width: 220px; }
 }
@@ -1767,106 +1771,14 @@ body {
    MOBILE SMC CONTROLS FIX
    Force controls into stacked rows so buttons are always visible
 ══════════════════════════════════════════════════════════════ */
+/* ── SMC stage + mobile scan button padding ─────────────────── */
 @media (max-width: 1099px) {
   #stage-smc { padding-bottom: 60px; }
-
-  #smc-controls {
-    flex-direction: column;
-    align-items: stretch;
-    height: auto;
-    padding: 10px 12px;
-    gap: 8px;
-  }
-
-  /* Row 1: Exchange + TF toggles side by side */
-  .smc-ctrl-group {
-    flex: 1;
-  }
-
-  /* Wrap exchange + TF into one flex row */
-  #smc-controls > .smc-ctrl-group {
-    display: flex;
-    align-items: center;
-  }
-
-  /* Hide desktop separators */
   .smc-ctrl-sep { display: none; }
-
-  /* Row 2: Scan buttons — full width, stacked */
-  #smc-scan-btn,
-  #smc-common-scan-btn,
-  #smc-abort-btn {
-    width: 100%;
-    justify-content: center;
-    height: 36px;
-    font-size: 11px;
-    border-radius: 2px;
-  }
-
-  #smc-scan-btn { padding: 0; }
-  #smc-common-scan-btn { padding: 0; height: 36px; }
-
-  /* Status text wraps instead of truncating */
-  #smc-status {
-    max-width: 100%;
-    white-space: normal;
-    margin-left: 0;
-    font-size: 9px;
-  }
-
-  /* Heatmap grid — 2 columns on mobile */
   .smc-grid { grid-template-columns: repeat(2, 1fr); }
   .smc-hover-card { width: 220px; }
-}
-
-/* ── smc-controls two-row layout ───────────────────────────── */
-#smc-controls {
-  flex-direction: column;  /* stack rows vertically by default */
-  height: auto;
-}
-.smc-ctrl-row {
-  display: flex; align-items: center; gap: 0;
-}
-.smc-ctrl-row--toggles {
-  flex-wrap: wrap; gap: 0;
-}
-.smc-ctrl-row--actions {
-  gap: 8px; padding-top: 6px; flex-wrap: wrap;
-}
-
-/* Desktop: collapse back to a single row */
-@media (min-width: 1100px) {
-  #smc-controls {
-    flex-direction: row;
-    height: 44px;
-    align-items: center;
-  }
-  .smc-ctrl-row {
-    display: contents; /* children participate directly in parent flex */
-  }
-  .smc-ctrl-row--actions { padding-top: 0; }
-}
-
-/* Mobile: buttons fill the row */
-@media (max-width: 1099px) {
-  .smc-ctrl-row--actions {
-    width: 100%;
-  }
-  #smc-scan-btn,
-  #smc-common-scan-btn,
-  #smc-abort-btn {
-    flex: 1;
-    justify-content: center;
-    height: 36px;
-    font-size: 11px;
-    padding: 0 8px;
-    border-radius: 2px;
-  }
   #smc-status {
-    width: 100%;
-    max-width: 100%;
-    margin-left: 0;
-    white-space: normal;
-    padding-top: 2px;
+    max-width: 100%; white-space: normal;
+    margin-left: 0; font-size: 9px; padding-top: 2px;
   }
 }
