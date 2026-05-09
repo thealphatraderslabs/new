@@ -1680,7 +1680,6 @@ body {
    COMMON SCAN — button, progress strip, result cards
 ══════════════════════════════════════════════════════════════ */
 
-/* Common Scan button — distinct amber accent */
 #smc-common-scan-btn {
   display: flex; align-items: center; gap: 6px;
   padding: 0 14px; height: 28px;
@@ -1699,7 +1698,6 @@ body {
 }
 #smc-common-scan-btn svg { opacity: 0.8; }
 
-/* ── TF progress strip (shown during common scan) ─────────── */
 .smc-tf-strip {
   display: flex; flex-direction: column;
   gap: 6px; width: 260px; margin-top: 4px;
@@ -1710,14 +1708,11 @@ body {
   color: var(--muted); opacity: 0.6;
   transition: opacity 0.2s;
 }
-.smc-tf-strip-row.smc-tf-strip-active {
-  opacity: 1; color: var(--green);
-}
+.smc-tf-strip-row.smc-tf-strip-active { opacity: 1; color: var(--green); }
 .smc-tf-strip-label { width: 28px; letter-spacing: 0.08em; }
 .smc-tf-strip-track {
   flex: 1; height: 3px;
-  background: var(--bg3); border-radius: 2px;
-  overflow: hidden;
+  background: var(--bg3); border-radius: 2px; overflow: hidden;
 }
 .smc-tf-strip-fill {
   height: 100%; width: 0%;
@@ -1726,7 +1721,6 @@ body {
 }
 .smc-tf-strip-pct { width: 30px; text-align: right; }
 
-/* ── Common result header banner ──────────────────────────── */
 .smc-common-header {
   display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
   padding: 8px 14px;
@@ -1735,16 +1729,13 @@ body {
   font-family: var(--font-mono); font-size: 9px;
   letter-spacing: 0.10em;
 }
-.smc-common-header-label {
-  color: #ffb700; font-weight: 600;
-}
+.smc-common-header-label { color: #ffb700; font-weight: 600; }
 .smc-common-header-sub { color: var(--sub); }
 .smc-common-header-tfs {
   margin-left: auto; color: var(--muted);
   font-size: 8px; letter-spacing: 0.14em;
 }
 
-/* ── Per-TF score badge row inside each cell ──────────────── */
 .smc-common-badge-row {
   display: flex; gap: 3px; flex-wrap: wrap;
   justify-content: center; margin: 4px 0 2px;
@@ -1753,8 +1744,7 @@ body {
   display: flex; flex-direction: column; align-items: center;
   background: rgba(255,255,255,0.04);
   border: 1px solid rgba(255,255,255,0.07);
-  border-radius: 2px; padding: 2px 4px;
-  min-width: 28px;
+  border-radius: 2px; padding: 2px 4px; min-width: 28px;
 }
 .smc-common-tf-name {
   font-family: var(--font-mono);
@@ -1763,27 +1753,120 @@ body {
 }
 .smc-common-tf-score {
   font-family: var(--font-mono);
-  font-size: 8px; font-weight: 600;
-  line-height: 1.4;
+  font-size: 8px; font-weight: 600; line-height: 1.4;
 }
-
-/* Larger badge row inside hover card */
 .smc-common-badge-row--hover {
-  padding: 6px 12px; justify-content: flex-start; gap: 6px;
-  margin: 4px 0 8px;
+  padding: 6px 12px; justify-content: flex-start; gap: 6px; margin: 4px 0 8px;
 }
-.smc-common-badge-row--hover .smc-common-tf-badge {
-  min-width: 36px; padding: 3px 6px;
-}
+.smc-common-badge-row--hover .smc-common-tf-badge { min-width: 36px; padding: 3px 6px; }
 .smc-common-badge-row--hover .smc-common-tf-name { font-size: 8px; }
 .smc-common-badge-row--hover .smc-common-tf-score { font-size: 10px; }
+.smc-common-cell .smc-cell-inner { padding: 8px 6px 6px; }
 
-/* Common cell is slightly taller to fit badge row */
-.smc-common-cell .smc-cell-inner {
-  padding: 8px 6px 6px;
-}
-
-/* ── SMC stage needs bottom padding on mobile too ──────────── */
+/* ══════════════════════════════════════════════════════════════
+   MOBILE SMC CONTROLS FIX
+   Force controls into stacked rows so buttons are always visible
+══════════════════════════════════════════════════════════════ */
 @media (max-width: 1099px) {
   #stage-smc { padding-bottom: 60px; }
+
+  #smc-controls {
+    flex-direction: column;
+    align-items: stretch;
+    height: auto;
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  /* Row 1: Exchange + TF toggles side by side */
+  .smc-ctrl-group {
+    flex: 1;
+  }
+
+  /* Wrap exchange + TF into one flex row */
+  #smc-controls > .smc-ctrl-group {
+    display: flex;
+    align-items: center;
+  }
+
+  /* Hide desktop separators */
+  .smc-ctrl-sep { display: none; }
+
+  /* Row 2: Scan buttons — full width, stacked */
+  #smc-scan-btn,
+  #smc-common-scan-btn,
+  #smc-abort-btn {
+    width: 100%;
+    justify-content: center;
+    height: 36px;
+    font-size: 11px;
+    border-radius: 2px;
+  }
+
+  #smc-scan-btn { padding: 0; }
+  #smc-common-scan-btn { padding: 0; height: 36px; }
+
+  /* Status text wraps instead of truncating */
+  #smc-status {
+    max-width: 100%;
+    white-space: normal;
+    margin-left: 0;
+    font-size: 9px;
+  }
+
+  /* Heatmap grid — 2 columns on mobile */
+  .smc-grid { grid-template-columns: repeat(2, 1fr); }
+  .smc-hover-card { width: 220px; }
+}
+
+/* ── smc-controls two-row layout ───────────────────────────── */
+#smc-controls {
+  flex-direction: column;  /* stack rows vertically by default */
+  height: auto;
+}
+.smc-ctrl-row {
+  display: flex; align-items: center; gap: 0;
+}
+.smc-ctrl-row--toggles {
+  flex-wrap: wrap; gap: 0;
+}
+.smc-ctrl-row--actions {
+  gap: 8px; padding-top: 6px; flex-wrap: wrap;
+}
+
+/* Desktop: collapse back to a single row */
+@media (min-width: 1100px) {
+  #smc-controls {
+    flex-direction: row;
+    height: 44px;
+    align-items: center;
+  }
+  .smc-ctrl-row {
+    display: contents; /* children participate directly in parent flex */
+  }
+  .smc-ctrl-row--actions { padding-top: 0; }
+}
+
+/* Mobile: buttons fill the row */
+@media (max-width: 1099px) {
+  .smc-ctrl-row--actions {
+    width: 100%;
+  }
+  #smc-scan-btn,
+  #smc-common-scan-btn,
+  #smc-abort-btn {
+    flex: 1;
+    justify-content: center;
+    height: 36px;
+    font-size: 11px;
+    padding: 0 8px;
+    border-radius: 2px;
+  }
+  #smc-status {
+    width: 100%;
+    max-width: 100%;
+    margin-left: 0;
+    white-space: normal;
+    padding-top: 2px;
+  }
 }
