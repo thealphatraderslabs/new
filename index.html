@@ -129,7 +129,8 @@
     <!-- OVERALL BIAS block — pushed to far right -->
     <!-- CHANGE: ph-bias-val bumped to 18-20px in CSS (see style.css).
          h-bias-conf now shows "Score: +39" sub-label only. -->
-    <div class="ph-bias">
+    <div class="ph-bias" id="ph-bias-wrap">
+      <!-- populated by renderBiasHero() in app.js -->
       <div class="ph-bias-label">OVERALL BIAS</div>
       <div class="ph-bias-val neutral" id="h-bias">—</div>
       <div class="ph-bias-conf" id="h-bias-conf">—</div>
