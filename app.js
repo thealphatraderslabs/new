@@ -426,6 +426,71 @@ function populateDerivativesPanel(data, analysis) {
       </div>`;
     }).join('');
   }
+
+  // Liquidation clusters
+  renderLiqClusters(analysis);
+}
+
+// ── Liquidation Clusters renderer ─────────────────────────────
+// Renders into #liq-container in the left derivatives panel.
+// Shows SHORT liqs (above price, red) and LONG liqs (below price, green)
+// as labelled bar rows. Bar width = proximity to price (closer = longer bar).
+// Matching the target design's "EST. LIQ. CLUSTERS" block.
+function renderLiqClusters(analysis) {
+  const el  = document.getElementById('liq-container');
+  if (!el) return;
+
+  const liq   = analysis?.liqLevels;
+  const price = analysis?.price;
+
+  if (!liq || !price) {
+    el.innerHTML = `<div class="empty-state" style="height:50px;font-size:8px">NO DATA</div>`;
+    return;
+  }
+
+  const { shortLiqs, longLiqs } = liq;
+
+  // Show nearest 4 of each side — closest to price first
+  const shorts = [...shortLiqs]
+    .sort((a, b) => a.price - b.price)  // ascending → nearest first
+    .slice(0, 4);
+  const longs  = [...longLiqs]
+    .sort((a, b) => b.price - a.price)  // descending → nearest first
+    .slice(0, 4);
+
+  // Max distance for bar scaling (use the farthest visible level)
+  const allDists = [
+    ...shorts.map(l => Math.abs(l.price - price)),
+    ...longs.map(l  => Math.abs(l.price - price)),
+  ];
+  const maxDist = Math.max(...allDists) || 1;
+
+  function barRow(item, side) {
+    const dist    = Math.abs(item.price - price);
+    const pct     = ((item.price - price) / price * 100);
+    const pctStr  = `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%`;
+    const barW    = Math.round((dist / maxDist) * 100);
+    const col     = side === 'short' ? '#ff4444' : '#00e676';
+    const bg      = side === 'short' ? 'rgba(255,68,68,0.1)' : 'rgba(0,230,118,0.1)';
+    return `
+      <div class="liq-cluster-row">
+        <span class="liq-cluster-label">${item.label}</span>
+        <div class="liq-cluster-bar-wrap">
+          <div class="liq-cluster-bar" style="width:${barW}%;background:${col};opacity:0.7"></div>
+        </div>
+        <span class="liq-cluster-pct" style="color:${col}">${pctStr}</span>
+        <span class="liq-cluster-side" style="color:${col};background:${bg}">
+          ${side === 'short' ? 'SHORT' : 'LONG'}
+        </span>
+      </div>`;
+  }
+
+  el.innerHTML = `
+    <div class="liq-cluster-note">ILLUSTRATIVE — NOT LIVE DATA</div>
+    ${shorts.map(l => barRow(l, 'short')).join('')}
+    <div class="liq-cluster-divider"></div>
+    ${longs.map(l => barRow(l, 'long')).join('')}
+  `;
 }
 
 // ════════════════════════════════════════════════════════════════
