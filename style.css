@@ -1360,3 +1360,315 @@ body {
 ::-webkit-scrollbar-track  { background: transparent; }
 ::-webkit-scrollbar-thumb  { background: var(--border2); }
 ::-webkit-scrollbar-thumb:hover { background: var(--green); }
+
+/* ════════════════════════════════════════════════
+   SMC SCANNER STAGE
+════════════════════════════════════════════════ */
+#stage-smc {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  padding-top: var(--header-h);
+}
+
+/* ── Controls strip ─────────────────────────── */
+#smc-controls {
+  display: flex; align-items: center;
+  gap: 0;
+  height: 44px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 0 16px;
+  flex-shrink: 0;
+}
+.smc-ctrl-label {
+  font-size: 7px; color: var(--muted);
+  font-family: var(--font-mono);
+  letter-spacing: 0.14em; text-transform: uppercase;
+  margin-right: 8px; white-space: nowrap;
+}
+.smc-ctrl-group {
+  display: flex; align-items: center;
+}
+.smc-ctrl-sep {
+  width: 1px; height: 20px;
+  background: var(--border);
+  margin: 0 14px;
+}
+.smc-toggle-group {
+  display: flex; gap: 2px;
+}
+.smc-toggle {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-family: var(--font-head);
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 4px 10px;
+  cursor: pointer;
+  border-radius: 0;
+  transition: color 0.12s, background 0.12s, border-color 0.12s;
+}
+.smc-toggle:hover {
+  color: var(--text);
+  background: var(--bg3);
+}
+.smc-toggle.active {
+  background: var(--green-dim);
+  border-color: rgba(0,230,118,0.35);
+  color: var(--green);
+}
+#smc-scan-btn {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--green);
+  color: #000;
+  font-family: var(--font-head);
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 0.12em;
+  padding: 6px 16px;
+  border: none; cursor: pointer;
+  border-radius: 0;
+  transition: opacity 0.12s, transform 0.1s;
+}
+#smc-scan-btn:hover { opacity: 0.88; transform: translateY(-1px); }
+#smc-abort-btn {
+  background: var(--red);
+  color: #fff;
+  font-family: var(--font-head);
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 0.12em;
+  padding: 6px 16px;
+  border: none; cursor: pointer;
+  border-radius: 0;
+}
+#smc-status {
+  font-family: var(--font-mono);
+  font-size: 9px; color: var(--muted);
+  margin-left: 14px;
+  white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+  max-width: 440px;
+}
+
+/* ── Legend ─────────────────────────────────── */
+#smc-legend {
+  display: flex; align-items: center; gap: 14px;
+  padding: 5px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  flex-shrink: 0;
+}
+.smc-legend-label {
+  font-family: var(--font-mono);
+  font-size: 7px; color: var(--muted);
+  letter-spacing: 0.14em;
+}
+.smc-legend-item {
+  font-family: var(--font-mono);
+  font-size: 9px; font-weight: 500;
+  letter-spacing: 0.06em;
+}
+.smc-legend-sep {
+  flex: 1;
+}
+.smc-legend-note {
+  font-family: var(--font-mono);
+  font-size: 7px; color: var(--muted);
+  letter-spacing: 0.12em;
+}
+
+/* ── Heatmap container ──────────────────────── */
+#smc-heatmap {
+  flex: 1; overflow-y: auto; overflow-x: hidden;
+  padding: 16px;
+}
+
+/* ── Heatmap grid ───────────────────────────── */
+.smc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 1px;
+  background: var(--border);
+}
+
+/* ── Heatmap cell ───────────────────────────── */
+.smc-cell {
+  position: relative;
+  background: var(--cell-bg, var(--bg2));
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  overflow: visible;
+}
+.smc-cell:hover {
+  border-color: var(--cell-col, var(--border));
+  z-index: 10;
+}
+.smc-cell-inner {
+  padding: 10px 8px 8px;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.smc-cell-ticker {
+  font-family: var(--font-head);
+  font-size: 11px; font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.smc-cell-score {
+  font-family: var(--font-head);
+  font-size: 16px; font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+.smc-cell-bias {
+  font-family: var(--font-mono);
+  font-size: 8px; font-weight: 500;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+.smc-cell-price {
+  font-family: var(--font-mono);
+  font-size: 8px; color: var(--muted);
+  margin-top: 2px;
+}
+
+/* ── Hover card ─────────────────────────────── */
+.smc-hover-card {
+  display: none;
+  position: absolute;
+  top: 100%; left: 0;
+  width: 260px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+  z-index: 999;
+  padding: 0;
+}
+.smc-cell:hover .smc-hover-card { display: block; }
+
+/* Flip card if near right edge */
+.smc-cell:nth-child(6n) .smc-hover-card,
+.smc-cell:nth-child(6n-1) .smc-hover-card {
+  left: auto; right: 0;
+}
+
+.smc-hover-header {
+  display: flex; align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px 6px;
+  border-bottom: 1px solid var(--border);
+}
+.smc-hover-sym {
+  font-family: var(--font-head);
+  font-size: 12px; font-weight: 700;
+  color: var(--text);
+}
+.smc-hover-tf {
+  font-family: var(--font-mono);
+  font-size: 8px; color: var(--muted);
+}
+.smc-hover-price {
+  font-family: var(--font-head);
+  font-size: 15px; font-weight: 800;
+  color: var(--text);
+  padding: 6px 10px 2px;
+}
+.smc-hover-bias {
+  font-family: var(--font-mono);
+  font-size: 9px; font-weight: 500;
+  padding: 0 10px 6px;
+  letter-spacing: 0.08em;
+}
+.smc-hover-stats {
+  display: flex; gap: 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.smc-hover-stats span {
+  flex: 1;
+  padding: 5px 8px;
+  font-family: var(--font-mono);
+  font-size: 8px; color: var(--muted);
+  border-right: 1px solid var(--border);
+  white-space: nowrap;
+}
+.smc-hover-stats span:last-child { border-right: none; }
+.smc-hover-stats b { color: var(--text); }
+
+.smc-hover-gates {
+  padding: 4px 0 6px;
+}
+.smc-hover-gate {
+  display: grid;
+  grid-template-columns: 14px 86px 1fr;
+  gap: 4px;
+  padding: 3px 10px;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+.smc-hover-gate:last-child { border-bottom: none; }
+.gate-icon { font-size: 8px; }
+.gate-pass .gate-icon { color: var(--green); }
+.gate-fail .gate-icon { color: var(--red); }
+.gate-label {
+  color: var(--sub); font-weight: 500;
+  white-space: nowrap;
+}
+.gate-pass .gate-label { color: var(--text); }
+.gate-desc {
+  color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* ── Empty / progress states ────────────────── */
+.smc-empty {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  height: 260px;
+  font-family: var(--font-mono);
+  font-size: 10px; color: var(--sub);
+  letter-spacing: 0.12em; text-transform: uppercase;
+  text-align: center;
+}
+.smc-empty-glyph {
+  font-size: 28px; color: var(--muted);
+  margin-bottom: 12px;
+}
+.smc-scan-progress {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  height: 260px; gap: 16px;
+}
+.smc-progress-ring {
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  background: conic-gradient(var(--green) 0deg, var(--bg3) 0deg);
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.3s;
+}
+.smc-progress-ring::after {
+  content: '';
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  background: var(--bg);
+}
+.smc-progress-text {
+  font-family: var(--font-mono);
+  font-size: 9px; color: var(--muted);
+  letter-spacing: 0.12em;
+  text-align: center;
+}
+
+/* ── Responsive ─────────────────────────────── */
+@media (max-width: 768px) {
+  #smc-controls {
+    flex-wrap: wrap;
+    height: auto; padding: 8px 12px; gap: 8px;
+  }
+  .smc-ctrl-sep { display: none; }
+  .smc-grid { grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); }
+  .smc-hover-card { width: 220px; }
+}
