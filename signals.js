@@ -403,6 +403,11 @@ function generateSetup(analysis, data, bias, scores) {
     const liquidity = liqLevels.shortLiqs.filter(l => l.price > price);
     if (liquidity.length > 0 && liquidity[0].price > tp2) tp3 = liquidity[0].price;
 
+    // Enforce strict ascending order: tp1 < tp2 < tp3
+    // Overrides from S/R / OB / liquidity can produce out-of-order TPs.
+    // Sort and re-assign so the displayed sequence always makes sense.
+    [tp1, tp2, tp3] = [tp1, tp2, tp3].sort((a, b) => a - b);
+
     tp1Reason = `TP1 at $${tp1.toFixed(2)} (1.5R) — nearest resistance / partial profit`;
     tp2Reason = `TP2 at $${tp2.toFixed(2)} (2.5R) — supply OB / major resistance zone`;
     tp3Reason = `TP3 at $${tp3.toFixed(2)} (4R) — liquidity cluster / extended target`;
@@ -431,6 +436,9 @@ function generateSetup(analysis, data, bias, scores) {
 
     const liquidity = liqLevels.longLiqs.filter(l => l.price < price);
     if (liquidity.length > 0 && liquidity[0].price < tp2) tp3 = liquidity[0].price;
+
+    // Enforce strict descending order for shorts: tp1 > tp2 > tp3
+    [tp1, tp2, tp3] = [tp1, tp2, tp3].sort((a, b) => b - a);
 
     tp1Reason = `TP1 at $${tp1.toFixed(2)} (1.5R) — nearest support / partial profit`;
     tp2Reason = `TP2 at $${tp2.toFixed(2)} (2.5R) — demand OB / major support zone`;
