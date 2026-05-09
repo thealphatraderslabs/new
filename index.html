@@ -553,40 +553,45 @@
 
   <!-- Scanner control strip -->
   <div id="smc-controls">
-    <div class="smc-ctrl-group">
-      <span class="smc-ctrl-label">EXCHANGE</span>
-      <div class="smc-toggle-group" id="smc-exchange-toggle">
-        <button class="smc-toggle active" data-val="bybit">BYBIT</button>
-        <button class="smc-toggle" data-val="binance">BINANCE</button>
+    <!-- Row 1: toggles -->
+    <div class="smc-ctrl-row smc-ctrl-row--toggles">
+      <div class="smc-ctrl-group">
+        <span class="smc-ctrl-label">EXCHANGE</span>
+        <div class="smc-toggle-group" id="smc-exchange-toggle">
+          <button class="smc-toggle active" data-val="bybit">BYBIT</button>
+          <button class="smc-toggle" data-val="binance">BINANCE</button>
+        </div>
+      </div>
+      <div class="smc-ctrl-sep"></div>
+      <div class="smc-ctrl-group">
+        <span class="smc-ctrl-label">TIMEFRAME</span>
+        <div class="smc-toggle-group" id="smc-tf-toggle">
+          <button class="smc-toggle" data-val="15m">15M</button>
+          <button class="smc-toggle active" data-val="1h">1H</button>
+          <button class="smc-toggle" data-val="4h">4H</button>
+          <button class="smc-toggle" data-val="1d">1D</button>
+          <button class="smc-toggle" data-val="1w">1W</button>
+        </div>
       </div>
     </div>
-    <div class="smc-ctrl-sep"></div>
-    <div class="smc-ctrl-group">
-      <span class="smc-ctrl-label">TIMEFRAME</span>
-      <div class="smc-toggle-group" id="smc-tf-toggle">
-        <button class="smc-toggle" data-val="15m">15M</button>
-        <button class="smc-toggle active" data-val="1h">1H</button>
-        <button class="smc-toggle" data-val="4h">4H</button>
-        <button class="smc-toggle" data-val="1d">1D</button>
-        <button class="smc-toggle" data-val="1w">1W</button>
-      </div>
+    <!-- Row 2: action buttons + status -->
+    <div class="smc-ctrl-row smc-ctrl-row--actions">
+      <button id="smc-scan-btn">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        SCAN MARKET
+      </button>
+      <button id="smc-common-scan-btn">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+        </svg>
+        COMMON SCAN
+      </button>
+      <button id="smc-abort-btn" style="display:none">ABORT</button>
+      <div id="smc-status"></div>
     </div>
-    <div class="smc-ctrl-sep"></div>
-    <button id="smc-scan-btn">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-      </svg>
-      SCAN MARKET
-    </button>
-    <button id="smc-common-scan-btn">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-        <circle cx="12" cy="12" r="3"/>
-        <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
-      </svg>
-      COMMON SCAN
-    </button>
-    <button id="smc-abort-btn" style="display:none">ABORT</button>
-    <div id="smc-status"></div>
   </div>
 
   <!-- Legend -->
