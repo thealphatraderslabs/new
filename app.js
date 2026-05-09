@@ -212,112 +212,16 @@ function renderUI(symbol, data, analysis, signal) {
     c24.className   = `ph-change ${chg >= 0 ? 'pos' : 'neg'}`;
   }
 
-  // Bias block — animated SVG hero
-  if (signal) renderBiasHero(signal);
+  // Bias block — enlarged label + score sub-line
+  if (bc && signal) {
+    bc.textContent = signal.biasLabel;
+    bc.style.color = signal.biasColor;
+    bc.className   = `ph-bias-val ${signal.biasLabel?.toLowerCase().includes('long') ? 'bullish' : signal.biasLabel?.toLowerCase().includes('short') ? 'bearish' : 'neutral'}`;
+  }
+  if (bconf && signal) {
+    bconf.textContent = `Score: ${signal.normalizedScore > 0 ? '+' : ''}${signal.normalizedScore}`;
+  }
   renderScoreRing(signal?.normalizedScore || 0, signal?.biasColor || '#ffd54f');
-}
-
-// ── Animated Bias Hero (top-strip right block) ─────────────────
-function renderBiasHero(signal) {
-  const wrap = document.getElementById('ph-bias-wrap');
-  if (!wrap) return;
-
-  const label    = signal.biasLabel || '—';
-  const score    = signal.normalizedScore || 0;
-  const scoreStr = `${score > 0 ? '+' : ''}${score}`;
-  const isLong   = label.toLowerCase().includes('long');
-  const isShort  = label.toLowerCase().includes('short');
-  const color    = isLong ? '#00e676' : isShort ? '#ff4444' : '#ffd54f';
-  const uid      = isLong ? 'L' : isShort ? 'S' : 'N';
-
-  // viewBox matches strip: 110w × 52h (--strip-h is 52px, cell width 110px)
-  wrap.innerHTML = `
-    <svg xmlns="http://www.w3.org/2000/svg"
-         viewBox="0 0 110 52" width="100%" height="100%"
-         preserveAspectRatio="xMidYMid meet"
-         style="display:block">
-      <defs>
-        <linearGradient id="sw${uid}" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%"   stop-color="${color}" stop-opacity="0"/>
-          <stop offset="50%"  stop-color="${color}" stop-opacity="0.12"/>
-          <stop offset="100%" stop-color="${color}" stop-opacity="0"/>
-        </linearGradient>
-        <clipPath id="cc${uid}"><rect width="110" height="52"/></clipPath>
-      </defs>
-
-      <g clip-path="url(#cc${uid})">
-        <!-- bg tint -->
-        <rect width="110" height="52" fill="${color}" fill-opacity="0.04"/>
-
-        <!-- pulsing top border -->
-        <rect x="0" y="0" width="110" height="1.5" fill="${color}" opacity="0">
-          <animate attributeName="opacity" values="0;1;0.2;1;0" dur="2.4s" repeatCount="indefinite"/>
-        </rect>
-
-        <!-- scan sweep -->
-        <rect x="-110" y="0" width="110" height="52" fill="url(#sw${uid})">
-          <animateTransform attributeName="transform" type="translate"
-            from="-110,0" to="220,0" dur="2.8s" repeatCount="indefinite"/>
-        </rect>
-
-        <!-- corner ticks -->
-        <polyline points="0,7 0,0 7,0"         fill="none" stroke="${color}" stroke-width="1" opacity="0.45"/>
-        <polyline points="103,0 110,0 110,7"   fill="none" stroke="${color}" stroke-width="1" opacity="0.45"/>
-        <polyline points="0,45 0,52 7,52"       fill="none" stroke="${color}" stroke-width="1" opacity="0.45"/>
-        <polyline points="103,52 110,52 110,45" fill="none" stroke="${color}" stroke-width="1" opacity="0.45"/>
-
-        <!-- animated bars — anchored to bottom baseline y=44 -->
-        ${isLong ? `
-          <rect x="8"  y="34" width="5" height="10" fill="${color}" opacity="0.35" rx="0.5">
-            <animate attributeName="height" values="10;16;10" dur="1.8s" repeatCount="indefinite"/>
-            <animate attributeName="y"      values="34;28;34" dur="1.8s" repeatCount="indefinite"/>
-          </rect>
-          <rect x="15" y="26" width="5" height="18" fill="${color}" opacity="0.6" rx="0.5">
-            <animate attributeName="height" values="18;24;18" dur="1.8s" begin="0.22s" repeatCount="indefinite"/>
-            <animate attributeName="y"      values="26;20;26" dur="1.8s" begin="0.22s" repeatCount="indefinite"/>
-          </rect>
-          <rect x="22" y="14" width="5" height="30" fill="${color}" opacity="0.9" rx="0.5">
-            <animate attributeName="height" values="30;36;30" dur="1.8s" begin="0.44s" repeatCount="indefinite"/>
-            <animate attributeName="y"      values="14;8;14"  dur="1.8s" begin="0.44s" repeatCount="indefinite"/>
-          </rect>
-        ` : isShort ? `
-          <rect x="8"  y="8" width="5" height="30" fill="${color}" opacity="0.9" rx="0.5">
-            <animate attributeName="height" values="30;36;30" dur="1.8s" repeatCount="indefinite"/>
-          </rect>
-          <rect x="15" y="8" width="5" height="18" fill="${color}" opacity="0.6" rx="0.5">
-            <animate attributeName="height" values="18;24;18" dur="1.8s" begin="0.22s" repeatCount="indefinite"/>
-          </rect>
-          <rect x="22" y="8" width="5" height="10" fill="${color}" opacity="0.35" rx="0.5">
-            <animate attributeName="height" values="10;16;10" dur="1.8s" begin="0.44s" repeatCount="indefinite"/>
-          </rect>
-        ` : `
-          <rect x="8"  y="20" width="5" height="18" fill="${color}" opacity="0.5" rx="0.5"/>
-          <rect x="15" y="14" width="5" height="24" fill="${color}" opacity="0.8" rx="0.5"/>
-          <rect x="22" y="20" width="5" height="18" fill="${color}" opacity="0.5" rx="0.5"/>
-        `}
-
-        <!-- divider -->
-        <line x1="33" y1="8" x2="33" y2="44" stroke="${color}" stroke-opacity="0.12" stroke-width="1"/>
-
-        <!-- OVERALL BIAS label -->
-        <text x="39" y="19"
-              font-family="'JetBrains Mono', monospace" font-weight="300"
-              font-size="6" fill="#5a6470" letter-spacing="0.8">OVERALL BIAS</text>
-
-        <!-- Score number -->
-        <text x="39" y="37"
-              font-family="Syne, sans-serif" font-weight="800"
-              font-size="16" fill="${color}" letter-spacing="0.5">
-          ${scoreStr}
-          <animate attributeName="opacity" values="1;0.72;1" dur="3s" repeatCount="indefinite"/>
-        </text>
-
-        <!-- SCORE sub-label -->
-        <text x="39" y="47"
-              font-family="'JetBrains Mono', monospace" font-weight="300"
-              font-size="6" fill="#5a6470" letter-spacing="0.8">SCORE</text>
-      </g>
-    </svg>`;
 }
 
 function renderScoreRing(score, color) {
@@ -1435,6 +1339,52 @@ function boot() {
   document.getElementById('mbr-analysis')?.addEventListener('click', () => {
     document.getElementById('stage-analysis')?.scrollIntoView({ behavior: 'smooth' });
   });
+
+  // ── Mobile panel tab switching ─────────────────────────────
+  // Maps data-panel value → actual panel element id
+  const PANEL_MAP = {
+    struct: null,          // chart/structure — always visible, just scroll to top
+    deriv:  'panel-deriv',
+    trade:  'panel-trade',
+  };
+
+  function switchMobilePanel(target) {
+    // Update button active state
+    document.querySelectorAll('.mpt-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.panel === target);
+    });
+
+    // Toggle panel visibility
+    Object.entries(PANEL_MAP).forEach(([key, id]) => {
+      if (!id) return; // struct panel is always in flow
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (key === target) {
+        el.classList.add('mobile-active');
+        // Scroll the panel into view smoothly
+        setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+      } else {
+        el.classList.remove('mobile-active');
+      }
+    });
+
+    // If switching back to chart/struct, scroll to top of analysis stage
+    if (target === 'struct') {
+      document.getElementById('stage-analysis')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+
+  document.querySelectorAll('.mpt-btn').forEach(btn => {
+    btn.addEventListener('click', () => switchMobilePanel(btn.dataset.panel));
+    // Explicit touch handler for iOS tap reliability
+    btn.addEventListener('touchend', e => {
+      e.preventDefault();
+      switchMobilePanel(btn.dataset.panel);
+    }, { passive: false });
+  });
+
+  // Set initial mobile state — deriv + trade hidden, struct shown
+  switchMobilePanel('struct');
 
   // UTC Clock
   function tickClock() {
