@@ -530,6 +530,126 @@ function abortScan() {
 }
 
 // ══════════════════════════════════════════════════════════════
+//  MULTI-TF COMMON SCAN
+//  Scans all 5 timeframes sequentially, returns only coins that
+//  score 6+/7 on EVERY timeframe (15m, 1h, 4h, 1d, 1w)
+// ══════════════════════════════════════════════════════════════
+const COMMON_TFS = ['15m', '1h', '4h', '1d', '1w'];
+
+async function runMultiTFScan({ exchange, onProgress, onDone, onError }) {
+  if (scanRunning) return;
+  scanRunning = true;
+  scanAborted = false;
+
+  try {
+    // 1. Fetch pair list once — reused across all TFs
+    onProgress?.({ phase: 'pairs', tf: null, msg: `Fetching pairs from ${exchange === 'bybit' ? 'Bybit' : 'Binance'}…` });
+    let pairs;
+    try {
+      pairs = exchange === 'bybit' ? await fetchBybitPairs() : await fetchBinancePairs();
+    } catch (e) {
+      onError?.(`Failed to fetch pair list: ${e.message}`);
+      scanRunning = false;
+      return;
+    }
+
+    // tfResults: Map<symbol, { [tf]: result }>
+    // qualifiedPerTF: Map<tf, Set<symbol>>
+    const tfResults      = new Map(); // symbol → { tf: result, … }
+    const qualifiedPerTF = new Map(); // tf → Set of symbols that passed
+
+    // 2. Scan each TF sequentially
+    for (const tf of COMMON_TFS) {
+      if (scanAborted) break;
+
+      onProgress?.({
+        phase: 'tf-start',
+        tf,
+        msg:   `Scanning ${tf.toUpperCase()} (${COMMON_TFS.indexOf(tf) + 1}/${COMMON_TFS.length})…`,
+      });
+
+      const qualifiedThisTF = new Set();
+      let done = 0;
+
+      for (let i = 0; i < pairs.length; i += BATCH_SIZE) {
+        if (scanAborted) break;
+        const batch = pairs.slice(i, i + BATCH_SIZE);
+        const batchResults = await Promise.all(batch.map(sym => scanCoin(sym, exchange, tf)));
+
+        for (const r of batchResults) {
+          done++;
+          if (r && r.score >= 6) {
+            qualifiedThisTF.add(r.symbol);
+            if (!tfResults.has(r.symbol)) tfResults.set(r.symbol, {});
+            tfResults.get(r.symbol)[tf] = r;
+          }
+        }
+
+        onProgress?.({
+          phase:   'scanning',
+          tf,
+          done,
+          total:   pairs.length,
+          msg:     `${tf.toUpperCase()} · ${done} / ${pairs.length} scanned · ${qualifiedThisTF.size} qualified`,
+        });
+
+        if (i + BATCH_SIZE < pairs.length) await sleep(BATCH_DELAY);
+      }
+
+      qualifiedPerTF.set(tf, qualifiedThisTF);
+    }
+
+    // 3. Intersect — only coins that qualified on ALL 5 TFs
+    // Start with all symbols from first TF, intersect with each subsequent
+    let commonSymbols = qualifiedPerTF.get(COMMON_TFS[0]) ? new Set(qualifiedPerTF.get(COMMON_TFS[0])) : new Set();
+    for (const tf of COMMON_TFS.slice(1)) {
+      const tfSet = qualifiedPerTF.get(tf) || new Set();
+      for (const sym of commonSymbols) {
+        if (!tfSet.has(sym)) commonSymbols.delete(sym);
+      }
+    }
+
+    // 4. Build final result array
+    const results = [];
+    for (const sym of commonSymbols) {
+      const tfData = tfResults.get(sym);
+      if (!tfData) continue;
+
+      // Use 1h data as the "primary" for price/bias display
+      const primary = tfData['1h'] || tfData['4h'] || tfData['1d'] || Object.values(tfData)[0];
+
+      // Total score = sum across all TFs (max 35)
+      const totalScore = COMMON_TFS.reduce((s, tf) => s + (tfData[tf]?.score || 0), 0);
+
+      // Consensus direction — majority across TFs
+      const bullCount = COMMON_TFS.filter(tf => tfData[tf]?.primaryDir === 'bull').length;
+      const bearCount = COMMON_TFS.filter(tf => tfData[tf]?.primaryDir === 'bear').length;
+      const consensusDir = bullCount >= bearCount ? 'bull' : 'bear';
+
+      results.push({
+        symbol:       sym,
+        exchange,
+        tfData,          // { '15m': result, '1h': result, … }
+        totalScore,      // out of 35
+        consensusDir,
+        price:        primary?.price,
+        fundingRate:  primary?.fundingRate,
+        rsi:          primary?.rsi,
+        biasColor:    consensusDir === 'bull' ? '#00e676' : '#ff4444',
+        biasLabel:    consensusDir === 'bull' ? '⬆ LONG' : '⬇ SHORT',
+      });
+    }
+
+    // Sort by total score desc
+    results.sort((a, b) => b.totalScore - a.totalScore);
+
+    onDone?.({ results, total: pairs.length, aborted: scanAborted });
+  } finally {
+    scanRunning = false;
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
 //  HEATMAP RENDERER
 // ══════════════════════════════════════════════════════════════
 function renderHeatmap(container, results, tf) {
@@ -608,4 +728,4 @@ function formatScanPrice(p) {
   return p.toFixed(6);
 }
 
-export { runScan, abortScan, renderHeatmap };
+export { runScan, abortScan, renderHeatmap, runMultiTFScan, COMMON_TFS };
