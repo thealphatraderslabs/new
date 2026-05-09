@@ -19,17 +19,21 @@ function init() {
   const stageSMC      = $('stage-smc');
   const topStrip      = $('top-strip');
 
+  const stageWrap = $('stage');
+
   function showStage(stage) {
     if (stage === 'analysis') {
       stageAnalysis.style.display = '';
       stageSMC.style.display      = 'none';
-      if (topStrip) topStrip.style.display = '';
+      if (topStrip)  topStrip.style.display  = '';
+      if (stageWrap) stageWrap.classList.remove('smc-active');
       railAnalysis?.classList.add('active');
       railSMC?.classList.remove('active');
     } else {
       stageAnalysis.style.display = 'none';
       stageSMC.style.display      = '';
-      if (topStrip) topStrip.style.display = 'none';
+      if (topStrip)  topStrip.style.display  = 'none';
+      if (stageWrap) stageWrap.classList.add('smc-active');
       railAnalysis?.classList.remove('active');
       railSMC?.classList.add('active');
     }
@@ -135,10 +139,10 @@ function startScan() {
       const prime  = results.filter(r => r.score === 7).length;
 
       if (aborted) {
-        setStatus(`Aborted · ${results.length} found so far`, '#ffd54f');
+        setStatus(`Aborted · ${results.length} qualified (6+/7) so far`, '#ffd54f');
       } else {
         setStatus(
-          `Done · ${total} scanned · ${results.length} qualified · ${prime} prime · ${longs}↑ ${shorts}↓`,
+          `Done · ${total} scanned · ${results.length} qualified (6+/7) · ${prime} prime · ${longs}↑ ${shorts}↓`,
           '#00e676'
         );
       }
