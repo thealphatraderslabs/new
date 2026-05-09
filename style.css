@@ -305,7 +305,7 @@ body {
   border-right: 1px solid var(--border);
   display: flex; flex-direction: column;
   justify-content: center;
-  width: 160px; flex-shrink: 0;
+  width: 200px; flex-shrink: 0;
 }
 .ph-ticker {
   font-size: 7px; color: var(--muted);
@@ -317,7 +317,7 @@ body {
   font-family: var(--font-head);
   font-weight: 800; font-size: 16px;
   color: var(--text); letter-spacing: -0.01em; line-height: 1.15;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .ph-change {
   font-size: 9px; margin-top: 1px;
@@ -358,13 +358,14 @@ body {
 
 /* OVERALL BIAS block — fixed right anchor, distinct background */
 .ph-bias {
+  padding: 0 16px;
   display: flex; flex-direction: column;
-  align-items: stretch; justify-content: center;
+  align-items: flex-end; justify-content: center;
   border-left: 1px solid var(--border);
-  width: 110px; flex-shrink: 0;
+  width: 150px; flex-shrink: 0;
+  gap: 1px;
   background: var(--bg3);
-  overflow: hidden;
-  padding: 0;
+  text-align: right;
 }
 .ph-bias-label {
   font-size: 7px; color: var(--muted);
