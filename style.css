@@ -295,7 +295,7 @@ body {
   align-items: stretch;
   flex: 1;
   min-width: 0; /* prevent blowing past flex parent */
-  overflow: hidden;
+  overflow: visible;
 }
 
 /* Symbol + price + change block
@@ -305,7 +305,7 @@ body {
   border-right: 1px solid var(--border);
   display: flex; flex-direction: column;
   justify-content: center;
-  width: 200px; flex-shrink: 0;
+  width: 160px; flex-shrink: 0;
 }
 .ph-ticker {
   font-size: 7px; color: var(--muted);
@@ -334,14 +334,14 @@ body {
 .ph-stats {
   display: flex; flex: 1;
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 .ph-stat {
   display: flex; flex-direction: column;
   justify-content: center;
   padding: 0 8px;
   border-right: 1px solid var(--border);
-  min-width: 0; flex: 1; /* shrink equally, never overflow */
+  min-width: 70px; flex: 1; /* shrink equally, never overflow */
 }
 .ph-stat-label {
   font-size: 7px; color: var(--muted);
