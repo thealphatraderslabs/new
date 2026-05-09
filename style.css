@@ -1368,7 +1368,10 @@ body {
   position: absolute; inset: 0;
   display: flex; flex-direction: column;
   overflow: hidden;
-  padding-top: var(--header-h);
+}
+/* When scanner is active, #stage top snaps to just below header (no strip) */
+#stage.smc-active {
+  top: var(--header-h);
 }
 
 /* ── Controls strip ─────────────────────────── */
