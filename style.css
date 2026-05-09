@@ -1675,3 +1675,110 @@ body {
   .smc-grid { grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); }
   .smc-hover-card { width: 220px; }
 }
+
+/* ══════════════════════════════════════════════════════════════
+   COMMON SCAN — button, progress strip, result cards
+══════════════════════════════════════════════════════════════ */
+
+/* Common Scan button — distinct amber accent */
+#smc-common-scan-btn {
+  display: flex; align-items: center; gap: 6px;
+  padding: 0 14px; height: 28px;
+  background: rgba(255, 183, 0, 0.10);
+  border: 1px solid rgba(255, 183, 0, 0.35);
+  color: #ffb700;
+  font-family: var(--font-mono);
+  font-size: 9px; letter-spacing: 0.12em;
+  cursor: pointer; border-radius: 2px;
+  transition: background 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+#smc-common-scan-btn:hover {
+  background: rgba(255, 183, 0, 0.18);
+  border-color: rgba(255, 183, 0, 0.6);
+}
+#smc-common-scan-btn svg { opacity: 0.8; }
+
+/* ── TF progress strip (shown during common scan) ─────────── */
+.smc-tf-strip {
+  display: flex; flex-direction: column;
+  gap: 6px; width: 260px; margin-top: 4px;
+}
+.smc-tf-strip-row {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--font-mono); font-size: 9px;
+  color: var(--muted); opacity: 0.6;
+  transition: opacity 0.2s;
+}
+.smc-tf-strip-row.smc-tf-strip-active {
+  opacity: 1; color: var(--green);
+}
+.smc-tf-strip-label { width: 28px; letter-spacing: 0.08em; }
+.smc-tf-strip-track {
+  flex: 1; height: 3px;
+  background: var(--bg3); border-radius: 2px;
+  overflow: hidden;
+}
+.smc-tf-strip-fill {
+  height: 100%; width: 0%;
+  background: var(--green); border-radius: 2px;
+  transition: width 0.3s;
+}
+.smc-tf-strip-pct { width: 30px; text-align: right; }
+
+/* ── Common result header banner ──────────────────────────── */
+.smc-common-header {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 8px 14px;
+  background: rgba(255, 183, 0, 0.06);
+  border-bottom: 1px solid rgba(255, 183, 0, 0.15);
+  font-family: var(--font-mono); font-size: 9px;
+  letter-spacing: 0.10em;
+}
+.smc-common-header-label {
+  color: #ffb700; font-weight: 600;
+}
+.smc-common-header-sub { color: var(--sub); }
+.smc-common-header-tfs {
+  margin-left: auto; color: var(--muted);
+  font-size: 8px; letter-spacing: 0.14em;
+}
+
+/* ── Per-TF score badge row inside each cell ──────────────── */
+.smc-common-badge-row {
+  display: flex; gap: 3px; flex-wrap: wrap;
+  justify-content: center; margin: 4px 0 2px;
+}
+.smc-common-tf-badge {
+  display: flex; flex-direction: column; align-items: center;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 2px; padding: 2px 4px;
+  min-width: 28px;
+}
+.smc-common-tf-name {
+  font-family: var(--font-mono);
+  font-size: 7px; color: var(--muted);
+  letter-spacing: 0.06em; line-height: 1;
+}
+.smc-common-tf-score {
+  font-family: var(--font-mono);
+  font-size: 8px; font-weight: 600;
+  line-height: 1.4;
+}
+
+/* Larger badge row inside hover card */
+.smc-common-badge-row--hover {
+  padding: 6px 12px; justify-content: flex-start; gap: 6px;
+  margin: 4px 0 8px;
+}
+.smc-common-badge-row--hover .smc-common-tf-badge {
+  min-width: 36px; padding: 3px 6px;
+}
+.smc-common-badge-row--hover .smc-common-tf-name { font-size: 8px; }
+.smc-common-badge-row--hover .smc-common-tf-score { font-size: 10px; }
+
+/* Common cell is slightly taller to fit badge row */
+.smc-common-cell .smc-cell-inner {
+  padding: 8px 6px 6px;
+}
