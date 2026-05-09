@@ -705,10 +705,144 @@ function populateTradePanel(analysis, signal, data) {
   const scoreStr = `${signal.normalizedScore > 0 ? '+' : ''}${signal.normalizedScore}`;
 
   wrap.innerHTML = `
-    <!-- Direction + score header -->
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:${isLong ? 'rgba(0,230,118,0.05)' : 'rgba(255,68,68,0.05)'};border-bottom:1px solid var(--border)">
-      <span style="color:${dirColor};font-family:var(--font-head);font-weight:700;font-size:14px;letter-spacing:0.1em">${isLong ? '⬆ LONG' : '⬇ SHORT'}</span>
-      <span style="color:${signal.biasColor};font-family:var(--font-mono);font-size:11px">Score: ${scoreStr}</span>
+    <!-- ── Animated Bias Hero ─────────────────────────────── -->
+    <div style="position:relative;overflow:hidden;border-bottom:1px solid var(--border)">
+      <svg id="bias-hero-svg" xmlns="http://www.w3.org/2000/svg"
+           viewBox="0 0 320 88" width="100%" height="88"
+           style="display:block;background:${isLong ? 'rgba(0,230,118,0.04)' : 'rgba(255,68,68,0.04)'}">
+        <defs>
+          <!-- Animated grain noise -->
+          <filter id="grain" x="0%" y="0%" width="100%" height="100%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.75" numOctaves="4" seed="2" result="noise">
+              <animate attributeName="seed" values="2;8;15;3;2" dur="4s" repeatCount="indefinite"/>
+            </feTurbulence>
+            <feColorMatrix type="saturate" values="0" in="noise" result="grayNoise"/>
+            <feBlend in="SourceGraphic" in2="grayNoise" mode="overlay" result="blended"/>
+            <feComposite in="blended" in2="SourceGraphic" operator="in"/>
+          </filter>
+
+          <!-- Sweep gradient for the scan line -->
+          <linearGradient id="sweep-${isLong ? 'long' : 'short'}" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%"   stop-color="${dirColor}" stop-opacity="0"/>
+            <stop offset="40%"  stop-color="${dirColor}" stop-opacity="0.18"/>
+            <stop offset="60%"  stop-color="${dirColor}" stop-opacity="0.18"/>
+            <stop offset="100%" stop-color="${dirColor}" stop-opacity="0"/>
+          </linearGradient>
+
+          <!-- Radial glow behind icon -->
+          <radialGradient id="icon-glow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%"   stop-color="${dirColor}" stop-opacity="0.25"/>
+            <stop offset="100%" stop-color="${dirColor}" stop-opacity="0"/>
+          </radialGradient>
+
+          <!-- Clip for the entire card -->
+          <clipPath id="card-clip"><rect width="320" height="88"/></clipPath>
+        </defs>
+
+        <g clip-path="url(#card-clip)">
+
+          <!-- Grid lines -->
+          ${Array.from({length:9}, (_,i) => `<line x1="${(i+1)*32}" y1="0" x2="${(i+1)*32}" y2="88" stroke="${dirColor}" stroke-opacity="0.06" stroke-width="1"/>`).join('')}
+          ${Array.from({length:3}, (_,i) => `<line x1="0" y1="${(i+1)*22}" x2="320" y2="${(i+1)*22}" stroke="${dirColor}" stroke-opacity="0.06" stroke-width="1"/>`).join('')}
+
+          <!-- Animated scan sweep -->
+          <rect x="-320" y="0" width="320" height="88" fill="url(#sweep-${isLong ? 'long' : 'short'})" opacity="0.7">
+            <animateTransform attributeName="transform" type="translate" from="-320,0" to="640,0" dur="3.2s" repeatCount="indefinite"/>
+          </rect>
+
+          <!-- Pulsing border top -->
+          <rect x="0" y="0" width="320" height="2" fill="${dirColor}" opacity="0">
+            <animate attributeName="opacity" values="0;0.9;0.3;0.9;0" dur="2.4s" repeatCount="indefinite"/>
+          </rect>
+
+          <!-- Icon glow blob -->
+          <ellipse cx="44" cy="44" rx="32" ry="32" fill="url(#icon-glow)">
+            <animate attributeName="rx" values="28;36;28" dur="2.8s" repeatCount="indefinite"/>
+            <animate attributeName="ry" values="28;36;28" dur="2.8s" repeatCount="indefinite"/>
+          </ellipse>
+
+          <!-- Directional arrow icon — animated -->
+          ${isLong ? `
+            <!-- Long: arrow pointing up-right with rising bars -->
+            <g transform="translate(18,22)">
+              <!-- Rising bars -->
+              <rect x="0"  y="28" width="6" height="12" fill="${dirColor}" opacity="0.5" rx="1">
+                <animate attributeName="height" values="12;16;12" dur="1.8s" repeatCount="indefinite"/>
+                <animate attributeName="y"      values="28;24;28" dur="1.8s" repeatCount="indefinite"/>
+              </rect>
+              <rect x="9"  y="20" width="6" height="20" fill="${dirColor}" opacity="0.7" rx="1">
+                <animate attributeName="height" values="20;26;20" dur="1.8s" begin="0.2s" repeatCount="indefinite"/>
+                <animate attributeName="y"      values="20;14;20" dur="1.8s" begin="0.2s" repeatCount="indefinite"/>
+              </rect>
+              <rect x="18" y="10" width="6" height="30" fill="${dirColor}" opacity="1"   rx="1">
+                <animate attributeName="height" values="30;38;30" dur="1.8s" begin="0.4s" repeatCount="indefinite"/>
+                <animate attributeName="y"      values="10;2;10"  dur="1.8s" begin="0.4s" repeatCount="indefinite"/>
+              </rect>
+              <!-- Arrow head -->
+              <polyline points="2,18 14,6 26,6 26,18" fill="none" stroke="${dirColor}" stroke-width="2" stroke-linejoin="round" opacity="0.9"/>
+              <polyline points="19,6 26,6 26,13"       fill="none" stroke="${dirColor}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </g>
+          ` : `
+            <!-- Short: arrow pointing down-right with falling bars -->
+            <g transform="translate(18,18)">
+              <rect x="0"  y="0"  width="6" height="30" fill="${dirColor}" opacity="1"   rx="1">
+                <animate attributeName="height" values="30;38;30" dur="1.8s" repeatCount="indefinite"/>
+              </rect>
+              <rect x="9"  y="0"  width="6" height="20" fill="${dirColor}" opacity="0.7" rx="1">
+                <animate attributeName="height" values="20;26;20" dur="1.8s" begin="0.2s" repeatCount="indefinite"/>
+              </rect>
+              <rect x="18" y="0"  width="6" height="12" fill="${dirColor}" opacity="0.5" rx="1">
+                <animate attributeName="height" values="12;16;12" dur="1.8s" begin="0.4s" repeatCount="indefinite"/>
+              </rect>
+              <!-- Arrow head pointing down -->
+              <polyline points="2,22 14,34 26,34 26,22" fill="none" stroke="${dirColor}" stroke-width="2" stroke-linejoin="round" opacity="0.9"/>
+              <polyline points="19,34 26,34 26,27"       fill="none" stroke="${dirColor}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </g>
+          `}
+
+          <!-- Bias label — big -->
+          <text x="74" y="36"
+                font-family="Syne, sans-serif" font-weight="800"
+                font-size="22" fill="${dirColor}" letter-spacing="2"
+                opacity="1">
+            ${signal.biasLabel.toUpperCase()}
+            <animate attributeName="opacity" values="1;0.82;1" dur="3s" repeatCount="indefinite"/>
+          </text>
+
+          <!-- OVERALL BIAS sub-label -->
+          <text x="75" y="52"
+                font-family="'JetBrains Mono', monospace" font-weight="300"
+                font-size="8" fill="#5a6470" letter-spacing="2">
+            OVERALL BIAS
+          </text>
+
+          <!-- Score badge — right side -->
+          <rect x="238" y="22" width="68" height="44" rx="4"
+                fill="${dirColor}" fill-opacity="0.08"
+                stroke="${dirColor}" stroke-opacity="0.2" stroke-width="1"/>
+          <text x="272" y="43"
+                font-family="Syne, sans-serif" font-weight="800"
+                font-size="20" fill="${dirColor}" text-anchor="middle"
+                letter-spacing="1">
+            ${scoreStr}
+          </text>
+          <text x="272" y="57"
+                font-family="'JetBrains Mono', monospace" font-weight="300"
+                font-size="7.5" fill="#5a6470" text-anchor="middle" letter-spacing="2">
+            SCORE
+          </text>
+
+          <!-- Corner tick marks — techy feel -->
+          <polyline points="0,12 0,0 12,0"     fill="none" stroke="${dirColor}" stroke-width="1.5" opacity="0.5"/>
+          <polyline points="308,0 320,0 320,12" fill="none" stroke="${dirColor}" stroke-width="1.5" opacity="0.5"/>
+          <polyline points="0,76 0,88 12,88"    fill="none" stroke="${dirColor}" stroke-width="1.5" opacity="0.5"/>
+          <polyline points="308,88 320,88 320,76" fill="none" stroke="${dirColor}" stroke-width="1.5" opacity="0.5"/>
+
+          <!-- Noise overlay -->
+          <rect width="320" height="88" fill="rgba(255,255,255,0.015)" filter="url(#grain)"/>
+
+        </g>
+      </svg>
     </div>
 
     <!-- Entry card -->
