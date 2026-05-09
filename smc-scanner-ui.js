@@ -29,6 +29,9 @@ function init() {
       if (stageWrap) stageWrap.classList.remove('smc-active');
       railAnalysis?.classList.add('active');
       railSMC?.classList.remove('active');
+      // mobile rail
+      document.getElementById('mbr-analysis')?.classList.add('active');
+      document.getElementById('mbr-smc')?.classList.remove('active');
     } else {
       stageAnalysis.style.display = 'none';
       stageSMC.style.display      = '';
@@ -36,11 +39,66 @@ function init() {
       if (stageWrap) stageWrap.classList.add('smc-active');
       railAnalysis?.classList.remove('active');
       railSMC?.classList.add('active');
+      // mobile rail
+      document.getElementById('mbr-analysis')?.classList.remove('active');
+      document.getElementById('mbr-smc')?.classList.add('active');
+      // scroll SMC stage into view on mobile
+      if (window.innerWidth <= 768) {
+        stageSMC.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
     }
   }
 
   railAnalysis?.addEventListener('click', () => showStage('analysis'));
   railSMC?.addEventListener('click', () => showStage('smc'));
+
+  // ── Mobile bottom rail ───────────────────────────────────────
+  document.getElementById('mbr-analysis')?.addEventListener('click', () => {
+    showStage('analysis');
+    // also reset mobile panel tab to Chart & Structure
+    document.querySelectorAll('.mpt-btn').forEach(b =>
+      b.classList.toggle('active', b.dataset.panel === 'struct')
+    );
+    stageAnalysis?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+
+  document.getElementById('mbr-deriv')?.addEventListener('click', () => {
+    showStage('analysis');
+    // activate Derivatives panel tab
+    document.querySelectorAll('.mpt-btn').forEach(b =>
+      b.classList.toggle('active', b.dataset.panel === 'deriv')
+    );
+    const panel = document.getElementById('panel-deriv');
+    panel?.classList.add('mobile-active');
+    document.getElementById('panel-trade')?.classList.remove('mobile-active');
+    setTimeout(() => panel?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+    // mobile active state
+    document.getElementById('mbr-analysis')?.classList.remove('active');
+    document.getElementById('mbr-deriv')?.classList.add('active');
+    document.getElementById('mbr-trade')?.classList.remove('active');
+    document.getElementById('mbr-smc')?.classList.remove('active');
+  });
+
+  document.getElementById('mbr-trade')?.addEventListener('click', () => {
+    showStage('analysis');
+    // activate Trade Setup panel tab
+    document.querySelectorAll('.mpt-btn').forEach(b =>
+      b.classList.toggle('active', b.dataset.panel === 'trade')
+    );
+    const panel = document.getElementById('panel-trade');
+    panel?.classList.add('mobile-active');
+    document.getElementById('panel-deriv')?.classList.remove('mobile-active');
+    setTimeout(() => panel?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+    // mobile active state
+    document.getElementById('mbr-analysis')?.classList.remove('active');
+    document.getElementById('mbr-deriv')?.classList.remove('active');
+    document.getElementById('mbr-trade')?.classList.add('active');
+    document.getElementById('mbr-smc')?.classList.remove('active');
+  });
+
+  document.getElementById('mbr-smc')?.addEventListener('click', () => {
+    showStage('smc');
+  });
 
   // ── Exchange toggle ──────────────────────────────────────────
   document.querySelectorAll('#smc-exchange-toggle .smc-toggle').forEach(btn => {
