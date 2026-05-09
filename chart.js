@@ -47,13 +47,7 @@ function initChart(container) {
     wickDownColor:   '#ff4444',
   });
 
-  // Volume histogram
-  volumeSeries = chart.addHistogramSeries({
-    color:        'rgba(0,230,118,0.12)',
-    priceFormat:  { type: 'volume' },
-    priceScaleId: '',
-    scaleMargins: { top: 0.82, bottom: 0 },
-  });
+  // Volume histogram removed — visual only, maths unaffected
 
   // Resize observer
   const ro = new ResizeObserver(() => {
@@ -70,11 +64,7 @@ function loadCandles(candles) {
 
   candleSeries.setData(candles);
 
-  volumeSeries.setData(candles.map(c => ({
-    time:  c.time,
-    value: c.volume,
-    color: c.close >= c.open ? 'rgba(0,230,118,0.15)' : 'rgba(255,68,68,0.12)',
-  })));
+  // Volume data kept in candles object — not rendered visually
 
   chart.timeScale().fitContent();
 }
