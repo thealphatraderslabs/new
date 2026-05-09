@@ -1782,3 +1782,8 @@ body {
 .smc-common-cell .smc-cell-inner {
   padding: 8px 6px 6px;
 }
+
+/* ── SMC stage needs bottom padding on mobile too ──────────── */
+@media (max-width: 1099px) {
+  #stage-smc { padding-bottom: 60px; }
+}
